@@ -27,7 +27,6 @@ import claudecnIcon from '@/assets/icons/sponsors/claudecn.png';
 import runapiIcon from '@/assets/icons/sponsors/runapi.jpg';
 import apikeyFunIcon from '@/assets/icons/sponsors/apikeyfun.png';
 import apinebulaIcon from '@/assets/icons/sponsors/apinebula_icon.png';
-import atlascloudIcon from '@/assets/icons/sponsors/atlascloud_icon.png';
 import ccsubIcon from '@/assets/icons/sponsors/ccsub.svg';
 import qiniuIcon from '@/assets/icons/sponsors/qiniu.png';
 import fennoIcon from '@/assets/icons/sponsors/fenno-icon.webp';
@@ -36,6 +35,7 @@ import a6apiIcon from '@/assets/icons/sponsors/a6api.png';
 import newapiIcon from '@/assets/icons/sponsors/newapi.svg';
 import subrouterIcon from '@/assets/icons/sponsors/subrouter.svg';
 import sudocodeIcon from '@/assets/icons/sponsors/sudocode.png';
+import soleapiIcon from '@/assets/icons/sponsors/soleapi.svg';
 import xycaiIcon from '@/assets/icons/sponsors/xycai-icon.png';
 import ppioIcon from '@/assets/icons/sponsors/ppio.png';
 
@@ -99,10 +99,10 @@ const sponsorDisplayOrder = [
   'byteplus',
   'siliconflow',
   'a6api',
-  'atlascloud',
   'ucloud',
   'ccsub',
   'sssaicode',
+  'soleapi',
   'micu',
   'rightcode',
   'etok',
@@ -798,27 +798,28 @@ export const sponsors: Sponsor[] = [
     couponCode: 'ccswitch',
   },
   {
-    id: 'atlascloud',
-    name: 'Atlas Cloud',
-    icon: atlascloudIcon,
-    url: 'https://www.atlascloud.ai/coding-plan?utm_source=github&utm_campaign=cc-switch',
+    id: 'soleapi',
+    name: 'SoleAPI',
+    icon: soleapiIcon,
+    url: 'https://soleapi.com/r/ccswitch',
     tier: 'standard',
-    category: 'native-platform',
-    iconBg: 'light',
+    category: 'aggregator',
+    iconFollowsTheme: true,
+    since: '2026-09',
     tagline: {
-      zh: '全模态 AI 推理平台',
-      en: 'Full-modal AI inference platform',
-      ja: 'フルモーダル AI 推論プラットフォーム',
+      zh: '可用性 99.99% 的 AI 模型网关',
+      en: 'AI model gateway with 99.99% availability',
+      ja: '可用性 99.99% の AI モデルゲートウェイ',
     },
     description: {
-      zh: 'Atlas Cloud 是一个全模态 AI 推理平台，通过单一 API 为开发者提供视频生成、图像生成及 LLM 接入。一次连接即可调用 300+ 款全模态精选模型，免去多供应商对接成本。',
-      en: 'Atlas Cloud is a full-modal AI inference platform that gives developers one API for video generation, image generation, and LLM access. Connect once to use 300+ curated models across modalities without juggling multiple vendor integrations.',
-      ja: 'Atlas Cloud は、1 つの API で動画生成、画像生成、LLM 接続を提供するフルモーダル AI 推論プラットフォームです。一度の接続で 300 以上の厳選マルチモーダルモデルを利用でき、複数ベンダー連携の手間を省けます。',
+      zh: 'SoleAPI 是一个面向开发者与企业的 AI 模型网关，一个 API Key 直达 Claude、GPT、Gemini 等 30+ 主流模型。原生兼容 OpenAI 与 Anthropic 协议，只需替换 Base URL 即可无缝接入 Claude Code、Codex、Cursor 等编码工具与现有 SDK。平台基于延迟与健康度实时智能选路，上游异常毫秒级自动切换备用渠道，服务可用性 99.99%，并提供 7×24 小时技术支持；所有调用一张账单，逐请求的 Token 与费用透明可查。',
+      en: 'SoleAPI is an AI model gateway for developers and enterprises: one API key gives you access to 30+ leading models including Claude, GPT, and Gemini. It is natively compatible with the OpenAI and Anthropic protocols, so Claude Code, Codex, Cursor, and existing SDKs work by simply changing the Base URL. Requests are routed in real time by latency and upstream health, with millisecond-level automatic failover, 99.99% availability, 24/7 technical support, and transparent per-request token and cost breakdowns.',
+      ja: 'SoleAPI は開発者と企業向けの AI モデルゲートウェイです。1 つの API キーで Claude・GPT・Gemini など 30 以上の主要モデルを利用できます。OpenAI / Anthropic プロトコルにネイティブ対応し、Base URL を差し替えるだけで Claude Code、Codex、Cursor や既存 SDK を接続できます。レイテンシと稼働状況に基づくリアルタイムのスマートルーティング、ミリ秒単位の自動切替、可用性 99.99%、24 時間 365 日の技術サポート、リクエストごとの透明な Token・料金明細を提供します。',
     },
     perk: {
-      zh: '专属开发者编程计划优惠',
-      en: 'Exclusive developer coding-plan offer',
-      ja: '開発者向け限定 Coding Plan 優待',
+      zh: '专属链接注册即送体验额度，邀请好友充值持续返现',
+      en: 'Free trial credits on signup, plus ongoing referral cashback',
+      ja: '専用リンク登録で無料体験クレジット、友人紹介で継続キャッシュバック',
     },
   },
   {
