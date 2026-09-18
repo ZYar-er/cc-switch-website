@@ -1,12 +1,22 @@
-# Using Kimi in Codex: CC Switch Local Routing Guide
+# Use Kimi in Codex: Direct Connections and Legacy Routing
+
+## Since v3.20.3: Prefer Native Responses Connections
+
+The official Codex presets for the Kimi Open Platform and Kimi For Coding now use **Responses**, without local routing for protocol conversion. Existing cards retain their original preset snapshot and do not update automatically.
+
+1. Upgrade to CC Switch v3.20.3 or later. In the Codex tab, choose the latest **Kimi** or **Kimi For Coding** preset according to where your API key comes from.
+2. Enter the matching API key, save and enable the provider. For an older card, adding the preset again is recommended; for manual migration, verify the endpoint and change **Upstream Format** to **Responses**.
+3. Restart Codex to load the configuration and model catalog. Native Responses can also use standard proxy routing, but Responses-to-Chat conversion is no longer required.
+
+See the [v3.20.3 release notes](/en/changelog/3.20.3) and [Adding Providers](/en/docs?section=providers&item=add). **The following instructions and screenshots describe legacy Chat configurations, retained for troubleshooting existing Chat cards; they do not describe the latest presets.**
 
 > Applies to CC Switch 3.16.5 and nearby versions. This guide is based on the repository documentation and code, and uses Kimi as an example of an OpenAI Chat Completions-compatible API. Screenshots are generated from the current frontend UI with de-identified sample data to avoid exposing a real API key or account balance.
 
-## Why local routing is needed
+## Why Legacy Chat Configurations Need Local Routing
 
 The newer Codex CLI targets the OpenAI Responses API, while both the Kimi Open Platform and Kimi For Coding expose the OpenAI Chat Completions shape, `/chat/completions`. These two protocols use different request bodies, streaming events, and response structures. If you put a Kimi endpoint directly into Codex configuration, the usual result is a 404 on `/responses`, or streaming responses that Codex cannot parse correctly.
 
-The third-party tools officially supported by Kimi For Coding are Anthropic-compatible coding agents such as Claude Code and Roo Code — Codex is not on the list. To use Kimi inside Codex, you need a protocol conversion layer, and that is exactly what CC Switch Local Routing does.
+When this guide was first written, Kimi For Coding did not officially support Codex. Legacy Chat configurations needed a protocol conversion layer, which CC Switch Local Routing provided. The newer Responses presets no longer have this limitation.
 
 CC Switch solves this by making Codex always talk to a local route and continue sending Responses API requests. The route detects whether the active provider is Chat-format, rewrites the request into Chat Completions for the upstream provider, and finally converts the Chat response back into the Responses shape that Codex understands.
 

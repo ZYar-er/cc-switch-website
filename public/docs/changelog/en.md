@@ -2,6 +2,938 @@
 
 Important release updates for CC Switch.
 
+## [3.20.3] - 2026-09-11
+
+> The official APIs of today's mainstream open-source models mostly support the OpenAI Responses format natively. This release moves Kimi's two Codex presets from Chat Completions conversion to **native Responses direct-connect** — with that, the official Codex presets for DeepSeek, Zhipu GLM, Qwen, MiniMax, Xiaomi MiMo, LongCat and Kimi all connect directly to the vendor endpoint, and together with Volcengine Doubao and Tencent Hunyuan they no longer need local routing to convert formats. If your Codex card is still in the Chat format it was added with, re-add the preset once, or set "Upstream format" to Responses on the edit page, and it connects directly. The rest is a wave of contributor-led correctness fixes: empty `reasoning_content` placeholders no longer flood Claude Code with empty Thought blocks, Codex agent tasks no longer stop dead after a single progress update, Claude Desktop's model probe no longer misreports "not available" on Responses upstreams, every shutdown no longer copies Claude's proxy retry and timeout settings onto Codex/Gemini/Grok Build, and universal provider sync no longer wipes child card settings; on the Codex side, proxy routing when `model_provider` is omitted, growing session usage on Windows, and the managed account's quota in the tray are all filled in. Presets and pricing get a maintenance round: the aggregator catalogs are refreshed, 千问AI平台 is rebranded and moved to Qwen 3.8, MiniMax defaults to M3, and the DeepSeek V4 family is repriced to the V4.1 Flash tier. **This release contains no database migration.**
+
+### Highlights: What You Can Do Now
+
+- **Connect to Kimi directly in Codex over native Responses**: the Kimi open platform and Kimi For Coding presets move from `openai_chat` to `openai_responses`, so Codex connects straight to the vendor's `/v1/responses` and no longer needs local routing to convert Responses to Chat. With that, the official Codex presets for DeepSeek, Zhipu GLM, Qwen, MiniMax, Xiaomi MiMo, LongCat and Kimi all connect directly; endpoints that still offer only Chat Completions (Baidu Qianfan, Tencent Token Plan, QwenCloud For Coding, StepFun, BaiLing, ModelScope and the aggregator platforms) keep converting through local routing. If your existing card is still in the Chat format it was added with (Kimi, and the DeepSeek, GLM and others switched in earlier releases), re-add the preset once, or set "Upstream format" to Responses on the edit page, and it connects directly; see Upgrade Notes.
+- **Claude Code is no longer flooded with empty Thought blocks** ([#7227](https://github.com/farion1231/cc-switch/pull/7227), fixes [#5028](https://github.com/farion1231/cc-switch/issues/5028), [#4404](https://github.com/farion1231/cc-switch/issues/4404)): upstreams like GLM, Qwen and DeepSeek that keep an empty `reasoning_content` placeholder in every chunk no longer turn every token into its own line plus an empty thinking block.
+- **Codex agent tasks no longer stop dead after a single progress update** ([#7280](https://github.com/farion1231/cc-switch/pull/7280), fixes [#6529](https://github.com/farion1231/cc-switch/issues/6529)): on a Chat upstream, commentary and the tool call that directly follows it are merged into the same assistant message, so the upstream no longer `stop`s early.
+- **Claude Desktop no longer reports "model not available" on Responses upstreams** ([#7287](https://github.com/farion1231/cc-switch/pull/7287), fixes [#7103](https://github.com/farion1231/cc-switch/issues/7103)): the probe's `max_tokens=1` is clamped during conversion to 16, the minimum the Responses API allows.
+- **Codex, Gemini and Grok Build proxy retry and timeout settings are no longer overwritten by Claude's after an exit** ([#7210](https://github.com/farion1231/cc-switch/pull/7210), fixes [#7204](https://github.com/farion1231/cc-switch/issues/7204)).
+- **Syncing a universal provider no longer wipes its children's usage script, common-config opt-out and ordering** ([#7212](https://github.com/farion1231/cc-switch/pull/7212), fixes [#7134](https://github.com/farion1231/cc-switch/issues/7134)).
+- **A Codex card without `model_provider` also goes through the local proxy on takeover** ([#7263](https://github.com/farion1231/cc-switch/pull/7263), fixes [#6256](https://github.com/farion1231/cc-switch/issues/6256)), instead of silently connecting straight to `api.openai.com`.
+- **Growing Codex session usage on Windows is no longer missed** ([#7219](https://github.com/farion1231/cc-switch/pull/7219), fixes [#6060](https://github.com/farion1231/cc-switch/issues/6060)): file size decides too when mtime does not move.
+- **See the quota of the ChatGPT account bound to a managed Codex card in the tray** (fixes [#7267](https://github.com/farion1231/cc-switch/issues/7267)): binding several accounts no longer leaves nothing but the name.
+- **See Claude Fable's weekly limit**: the provider card and the tray both parse the usage API's new `limits[]` array.
+- **Disable Claude Code's Artifact tool in one click**: gateways that validate tool schemas strictly, DeepSeek among them, no longer return 400 on every request.
+- **The official DeepSeek Codex preset can read images** ([#7286](https://github.com/farion1231/cc-switch/pull/7286), fixes [#7283](https://github.com/farion1231/cc-switch/issues/7283)); `deepseek-flash` and the V4 family are billed at the V4.1 Flash tier instead of $0 or the old peak price.
+- **Add 千问AI平台 Token Plan in one click** ([#7183](https://github.com/farion1231/cc-switch/pull/7183)); 千问AI平台 moves to Qwen 3.8, MiniMax defaults to M3 ([#7255](https://github.com/farion1231/cc-switch/pull/7255)), and the aggregator Codex catalogs are refreshed.
+
+---
+
+### Usage Guides
+
+- **[Adding Providers](/en/docs?section=providers&item=add)**: the difference between Codex's native Responses direct connection and Chat routing conversion, the Claude quick toggle table (including the new "Disable Artifact Tool"), and what "preset changes only affect newly created providers" means.
+- **[Request Routing](/en/docs?section=proxy&item=routing)**: config rewriting and restoration under takeover — this release's routing fix for a Codex card missing `model_provider` lands on this path.
+- **[Usage Statistics](/en/docs?section=proxy&item=usage)**: Codex session parsing and pricing configuration, plus this release's byte cursor and pricing backfill rules.
+
+---
+
+> [!WARNING]
+>
+> ## Only Official Channels (Please Read)
+>
+> CC Switch is a **fully free and open-source** desktop app, and we **do not charge users any fees**. Please only obtain the software through the official channels listed below:
+>
+> | Channel            | Only Official                                                                  |
+> | ------------------ | ------------------------------------------------------------------------------ |
+> | Website            | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | Source             | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | Downloads          | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | Author             | **[@farion1231](https://github.com/farion1231)**                               |
+> | Report an Imposter | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **Any "CC Switch" website or client that asks you for payment, top-ups, or login credentials is fake.** If you have been tricked into paying, stop the transaction immediately and file a report through GitHub Issues.
+
+---
+
+### Overview
+
+The official APIs of mainstream open-source models now mostly serve an OpenAI Responses endpoint natively, and Responses has long been Codex's only native protocol. Until now CC Switch's Codex presets for these models came in two shapes: a direct connection where the vendor endpoint supports Responses natively, and, where only Chat Completions is offered, a local proxy that converts Codex's Responses request into Chat and converts the streamed response back. The conversion path works, but every extra layer of translation is another place to go wrong — [#7280](https://github.com/farion1231/cc-switch/pull/7280), fixed in this release, is exactly that kind of conversion defect. The Kimi open platform and Kimi For Coding endpoints now both serve `/v1/responses` natively, and the official Codex integration guides require `wire_api = "responses"`, so the two presets move to native Responses direct-connect. With that, the official Codex presets for these mainstream open-source models — DeepSeek, Zhipu GLM, Qwen (千问AI平台 / QwenCloud), MiniMax, Xiaomi MiMo, LongCat and Kimi — all connect directly to the vendor endpoint, together with Volcengine Doubao and Tencent Hunyuan; endpoints that still offer only Chat Completions (Baidu Qianfan, Tencent Token Plan, QwenCloud For Coding, StepFun, BaiLing, ModelScope and the aggregator platforms) keep converting through local routing, and the user manual's "Chat-only" examples now name those providers.
+
+The rest is a wave of contributor-led correctness fixes that close several issues open for months. On the proxy: OpenAI-compatible upstreams that keep an empty `reasoning_content` placeholder in every chunk no longer flood Claude Code with empty Thought blocks and a line break per token; the Codex Responses-to-Chat converter no longer splits a commentary message from the tool calls directly following it into two assistant messages — which used to end a long task right after a single progress update; Claude Desktop's one-token model probe is clamped to the Responses API minimum, so mapped models are no longer reported as "not available"; and Codex image generation under routing picks up three fixes, for pasted full endpoints, mixed-case suffixes and streamed usage. Two data-integrity problems close: every normal exit copied Claude's retry and timeout settings onto the Codex, Gemini and Grok Build proxy rows; and syncing a universal provider wiped its children's usage script, common-config opt-out and endpoint auto-select, and pushed the card to the bottom of the list. On the Codex side: takeover now honors the proxy address when a card omits `model_provider`; usage import recognizes growing rollouts on Windows NTFS through a persisted byte cursor; the tray shows the bound ChatGPT account's quota for managed Codex cards; and Claude Fable's weekly limit appears in the provider card and the tray. The Claude provider editor gains a "Disable Artifact Tool" quick toggle, for gateways that reject Claude Code's Artifact tool schema.
+
+On the preset side: the aggregator Codex presets are refreshed to current catalogs, DashScope/Bailian is rebranded as 千问AI平台 and moves to Qwen 3.8 ([#7183](https://github.com/farion1231/cc-switch/pull/7183)), MiniMax defaults to M3 ([#7255](https://github.com/farion1231/cc-switch/pull/7255)), the bundled DeepSeek Codex catalog mirrors the vision-capable `deepseek-flash` ([#7286](https://github.com/farion1231/cc-switch/pull/7286)), and the DeepSeek V4 family is repriced to the V4.1 Flash tier. This release does not change the database schema.
+
+**Release date**: 2026-09-11
+
+**Change size**: 22 commits | 62 files changed | +3,458 / -802 lines
+
+---
+
+### Added
+
+#### "Disable Artifact Tool" Quick Toggle in the Claude Provider Editor
+
+Some third-party Anthropic-compatible gateways (DeepSeek among them) validate tool JSON Schemas with a strict regex checker and reject the Unicode property escapes (`\p{Cc}`, `\p{Cf}`, …) that Claude Code's Artifact tool emits once its `str_replace` database capability is rolled out — every request then fails with 400 `Invalid schema for function 'Artifact'`, independent of the model selected. A sixth checkbox next to the existing Claude quick toggles sets `env.CLAUDE_CODE_DISABLE_ARTIFACT="1"` on the provider, which keeps the Artifact tool out of the tools array entirely; unchecking removes the key like the other toggles do. Labels in all four locales and the user manual's toggle table (zh/en/ja) are updated.
+
+#### Claude Fable's Weekly Limit Appears in the Provider Card and Tray
+
+The Claude OAuth usage API now reports model-scoped weekly limits in a top-level `limits[]` array (`kind: "weekly_scoped"`, with `scope.model.display_name` and `percent`) instead of dedicated top-level windows; the parser only read the legacy windows, so the Fable limit never showed up. `limits[]` is now parsed into `seven_day_fable`, `seven_day_opus` and `seven_day_sonnet` — scoped rows override the legacy window of the same name, duplicates and malformed rows are skipped, and legacy windows, extra usage and unknown windows are all preserved. The tray gives Fable its own label group so it is not merged into the weekly max value, and the "Fable" label is added in all four locales.
+
+#### New Provider Preset
+
+千问AI平台 Token Plan ([#7183](https://github.com/farion1231/cc-switch/pull/7183)) joins the preset library across seven apps — Claude Code, Claude Desktop, Codex, Hermes, OpenClaw, OpenCode and Pi — in the same batch as the rebrand described below. Existing providers are unaffected.
+
+#### Pricing Rows for `deepseek-flash` and `deepseek-v4-flash-vision-exp`
+
+`deepseek-flash` is DeepSeek's only currently recommended id and `deepseek-v4-flash-vision-exp` is the legacy vision name the official install script wrote through 1.2.0; both are served by V4.1 Flash and billed at its $0.30/$1.20 per million with $0.006 cache read. Neither had a row before, and the `LIKE '{id}-%'` prefix fallback only matches longer ids, so requests under either id were all billed at $0.
+
+---
+
+### Changed
+
+#### Kimi's Codex Presets Move to Native Responses Direct-Connect
+
+Both the Kimi open platform (`api.moonshot.cn/v1`) and Kimi For Coding (`api.kimi.com/coding/v1`) now serve `/v1/responses` natively, and their official Codex integration guides require `wire_api = "responses"`, so the two presets move from `openai_chat` (local proxy Responses-to-Chat conversion, routing takeover required) to `openai_responses` (Codex connects directly). Both endpoints were verified with real keys against the exact Codex 0.153.4 request shape (`reasoning.encrypted_content`, `reasoning.summary`, hosted web_search, replayed reasoning items), and with `codex exec` end-to-end tool loops. `kimi-k3` becomes the open platform's default model and first catalog row, with `kimi-k2.7-code` kept as the second row; `codexChatReasoning`, which only means something for Chat conversion, is dropped from both presets, and `promptCacheRouting` from Kimi For Coding — on the native path Codex sends `prompt_cache_key` itself; every Kimi row declares `supportsParallelToolCalls`, matching the official Kimi Code `models.json`; and no reasoning default is declared, because `config.toml`'s `model_reasoning_effort` wins over the catalog default, which only marks the `/model` picker. The user manual (zh/en/ja) now names the providers that still use Chat routing in its "Chat-only" examples, and the stale note that Kimi Code rejects the `codex-cli` user agent is corrected. No backend change.
+
+#### Aggregator Codex Presets Refreshed to Current Catalogs
+
+SiliconFlow (.cn) defaults to `deepseek-ai/DeepSeek-V4-Flash` (1M window, high/max effort, with an explicit `enable_thinking`/`reasoning_effort` contract) now that MiniMax M2.5 is retired on the domestic site; Atlas Cloud moves to `zai-org/glm-5.2`, the latest GLM its Coding Plan includes (1M window); Novita moves to `zai-org/glm-5.3` (1M, text-only); NVIDIA NIM moves to `moonshotai/kimi-k3` (1M, text+image; NIM accepts `reasoning_effort` low/high/max and defaults to max when the field is omitted, so the preset pins high explicitly to match its `config.toml`); and OpenCode Go's GLM/Kimi entries are updated — `glm-5.3` (the new default), `glm-5.3-flash` and `kimi-k3` replace `glm-5.2`, `glm-5.1` and `kimi-k2.7-code`, with windows, modalities and effort tiers mirrored from models.dev, while the DeepSeek V4 Pro/Flash and MiMo V2.5 Pro rows stay. Where a platform has not documented a thinking/effort contract for the new model (Atlas Cloud, Novita), the preset carries an explicit no-op override so the backend no longer injects vendor-native thinking fields by model name.
+
+#### DashScope/Bailian Presets Rebranded as 千问AI平台 With Qwen 3.8 ([#7183](https://github.com/farion1231/cc-switch/pull/7183))
+
+The domestic Bailian presets are renamed 千问AI平台 with a dedicated icon, and the console and API-key links move to `platform.qianwenai.com`; the Qwen family is refreshed to the 3.8 generation across Claude Code, Claude Desktop, Codex, Hermes, OpenClaw, OpenCode and Pi — `qwen3.8-max` / `qwen3.7-plus` / `qwen3.8-flash` for the Opus/Sonnet/Haiku roles, with the official 983,616-token window used consistently; the domestic `Bailian For Coding` presets (Claude Code, Claude Desktop, Hermes) become `千问AI平台 Coding Plan` on their existing endpoint; and OpenClaw/OpenCode/Pi model metadata is aligned with the official client docs. The international QwenCloud presets keep their names and get their own icon; the pay-as-you-go presets move to Qwen 3.8 and the Token Plan presets are aligned with them (Codex and Hermes already carried the 3.8 rows), while QwenCloud For Coding keeps `qwen3.7-plus`, `qwen3-coder-plus` and its `coding-intl` endpoint. The endpoints have one exception: Pi's QwenCloud Token Plan switches from `/apps/anthropic` (Anthropic Messages) to `/compatible-mode/v1` (OpenAI Chat Completions), while the Hermes and OpenClaw Token Plan presets stay on their Anthropic addresses.
+
+#### MiniMax Presets Default to M3 and Drop Expired Offers ([#7255](https://github.com/farion1231/cc-switch/pull/7255), fixes [#7254](https://github.com/farion1231/cc-switch/issues/7254))
+
+The official MiniMax and MiniMax (en) presets across all seven preset files now default to `MiniMax-M3` — Claude Code declares the 1M context (`MiniMax-M3[1M]` with the official `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000`), Claude Desktop enables 1M support, and OpenClaw/OpenCode/Pi metadata carries the 1,000,000-token context, 131,072-token output budget, image input and reasoning support. The expired Coding Plan promotions are removed from every preset and all four locales. Existing configurations and third-party defaults are unchanged.
+
+#### DouBaoSeed Preset Renamed to Volcengine Doubao
+
+The display name is localized across the seven app preset files: 「火山 豆包AI」 in zh/zh-TW and "Volcengine Doubao" in en/ja, following the Qiniu/Compshare convention — the top-level name keeps the Latin fallback, so the preset stays searchable in both Chinese and English. The `settingsConfig.name` that OpenCode and Pi write into the client config files is renamed too but keeps its ASCII form (`Volcengine Doubao`). Identifiers in live configs are deliberately untouched: the Codex TOML provider name, the Hermes node key `doubao_seed`, Pi's provider key, the OpenClaw model-ref prefix, the promotion key and the icon.
+
+#### DeepSeek V4 Family Repriced to the V4.1 Flash Tier
+
+DeepSeek has retired V4 Flash and announced that from 2026-09-14 12:00 (Beijing) V4 Pro requests are routed to V4.1 Flash and billed at the Flash price; this release executes that callback early. `deepseek-v4-flash`, `deepseek-v4-flash-0731` and `deepseek-v4-pro` move to $0.30/$1.20 with $0.006 cache read, the repair entries only correct rows still on the previous peak tier, and they are chained after the 2026-08-16 peak/off-peak rows, so older databases hop through the intermediate prices step by step. `deepseek-chat` and `deepseek-reasoner` stay untouched for lack of an authoritative source. `deepseek-v4-pro` also leaves the confirmed text-only table — it now lands on a vision-capable model, so the image sanitizer fails open for it.
+
+#### Claude "Apply to All Roles" Follows the Form Order
+
+The one-click button that copies a single model name into every role of the Claude model mapping previously took `ANTHROPIC_MODEL` first; it now reads the panel top to bottom (Sonnet, Opus, Fable, Haiku, subagent) and uses the default model only as the last fallback.
+
+#### Atlas Cloud Is No Longer a Sponsor
+
+The sponsor identity is removed from the README sponsor tables in all four languages, the banner, the `isPartner`/`partnerPromotionKey` flags and the promotion strings; the presets for the seven apps themselves stay, moving from the sponsor group to the non-sponsor group with endpoints, models and icon unchanged.
+
+---
+
+### Fixed
+
+#### Empty `reasoning_content` Placeholders No Longer Flood Claude Code With Empty Thought Blocks
+
+Some OpenAI-compatible upstreams (GLM, Qwen, DeepSeek-V4-Pro via ModelScope/DashScope, Bailian, JD Cloud, …) keep a `reasoning_content: ""` placeholder in every content chunk instead of omitting the field. The reasoning branch of the OpenAI Chat-to-Anthropic SSE converter only checked whether the field was present, and it shares the open-block state with the content branch, so every content chunk first closed the open text block, opened an empty thinking block, then reopened a text block — N content chunks became 2N content blocks, half of them empty thinking blocks, which Claude Code rendered as one line per token plus dozens of empty Thought blocks, and which bloated the session JSONL along with it. Empty reasoning is now filtered before entering the branch, matching the guard the content branch and the non-streaming converter already had; two regression tests pin block index, type and order for both the placeholder shape and real reasoning. ([#7227](https://github.com/farion1231/cc-switch/pull/7227), fixes [#5028](https://github.com/farion1231/cc-switch/issues/5028), [#4404](https://github.com/farion1231/cc-switch/issues/4404); supersedes [#4869](https://github.com/farion1231/cc-switch/pull/4869), [#6421](https://github.com/farion1231/cc-switch/pull/6421), [#6576](https://github.com/farion1231/cc-switch/pull/6576))
+
+#### Codex Agent Tasks No Longer Stop After a Progress Update on Chat Upstreams
+
+The Codex Responses-to-Chat Completions converter emitted two consecutive assistant messages when one model turn contained a commentary message directly followed by `function_call` items; Chat upstreams treat the text-only message as a complete turn and return `finish_reason=stop` before the expected tool call. Pending tool calls are now merged into the directly adjacent assistant message when it carries no `tool_calls` yet, pending reasoning is attached per segment so parallel calls do not duplicate it, and every other boundary shape (user/tool boundaries, prior tool-call batches, media flushes) keeps the new-message path; the reasoning placeholder backfill still applies to coalesced calls without reasoning. ([#7280](https://github.com/farion1231/cc-switch/pull/7280), fixes [#6529](https://github.com/farion1231/cc-switch/issues/6529); supersedes [#6530](https://github.com/farion1231/cc-switch/pull/6530), [#5895](https://github.com/farion1231/cc-switch/pull/5895); also reported as [#5860](https://github.com/farion1231/cc-switch/issues/5860))
+
+#### Claude Desktop Model Probes No Longer Fail on Responses Upstreams
+
+The Responses API rejects `max_output_tokens` below 16, but Anthropic clients legitimately send tiny probe budgets — Claude Desktop's model-availability probe uses `max_tokens=1` — and the Anthropic-to-Responses conversion copied the value verbatim, so strict upstreams returned 400 and Claude Desktop reported the mapped model as unavailable under local routing. Values 1 through 15 are clamped up to 16 during conversion; 16 and above, 0 and non-integer values keep their pass-through semantics, normal session requests convert byte-for-byte as before, and the Codex OAuth path still strips `max_output_tokens` afterwards. ([#7287](https://github.com/farion1231/cc-switch/pull/7287), fixes [#7103](https://github.com/farion1231/cc-switch/issues/7103))
+
+#### Codex Image Generation Under Routing: Pasted Full Endpoints, Mixed-Case Suffixes, Streamed Usage
+
+The `/images/edits` route and the suffix table shared by Images/Responses/Compact/Chat already shipped in v3.20.2; this round closes three gaps around them. When the base URL was pasted as a complete `/chat/completions` or `/responses` endpoint and the "full URL" switch is off, the sibling Images and Alpha Search endpoints are now derived the same way the Chat path already tolerated, instead of sending standalone requests to `…/chat/completions/images/generations`. Suffix detection and the sibling rewrite match case-insensitively (`/v1/Images/Edits/`, `/v1/Responses/Compact/`) while preserving the original URL prefix, percent-encoding and query. And streaming Images usage is parsed from the `image_generation.completed` event's top-level `usage` (skipping the `partial_image` events that carry none) before falling back to the Chat Completions stream parser, so streamed generations no longer record zero tokens. ([#7177](https://github.com/farion1231/cc-switch/pull/7177), follow-up to [#7036](https://github.com/farion1231/cc-switch/pull/7036))
+
+#### Shutdown and Port Allocation No Longer Overwrite Per-App Proxy Settings
+
+On normal exit the proxy's restore path called the legacy global proxy-config writer to clear the long-retired `live_takeover_active` flag; that writer reads the Claude row and runs an UPDATE without a WHERE clause, so every shutdown copied Claude's `max_retries` and three timeout fields onto the Codex, Gemini and Grok Build rows — and the UPDATE never carried the flag in the first place, so the step had no effect beyond the clobber. The ephemeral listen-port path did the same on every proxy start. The dead write-back is dropped (live-config restore, backup cleanup and health reset are unchanged) and the resolved ephemeral port is persisted through the global-config interface, which only touches the shared listen/logging columns; two regression tests seed distinct settings for all four apps and assert they survive both paths. ([#7210](https://github.com/farion1231/cc-switch/pull/7210), fixes [#7204](https://github.com/farion1231/cc-switch/issues/7204))
+
+#### Universal Provider Sync Keeps Its Children's Settings and Position
+
+Syncing a universal provider regenerates its Claude/Codex/Gemini child providers. The child's `settings_config` was merged with the existing row, but `meta`, `created_at` and `sort_index` were taken from the generated object, which the universal provider never carries when it comes from the UI — so the UPDATE wiped the child's usage script, common-config opt-out, endpoint auto-select and other per-app settings to `{}` and reset the sort index to NULL, pushing the card to the bottom of the list as if it had been deleted and re-created. Existing children now keep those three fields; name, base URL, key, models, website and notes are still driven by the universal provider, and first-time creation still inherits the parent's metadata. ([#7212](https://github.com/farion1231/cc-switch/pull/7212), fixes [#7134](https://github.com/farion1231/cc-switch/issues/7134))
+
+#### Codex Cards Omitting `model_provider` Honor the Proxy Address on Takeover
+
+When a Codex card's TOML has no `model_provider`, Codex falls back to its built-in `openai` provider, but takeover wrote the proxy address as a top-level `base_url` that Codex never reads, so requests bypassed the local proxy and went straight to `api.openai.com`. The missing selector is now treated as the built-in `openai` provider and the proxy address is written to `openai_base_url`; the existing legacy-reroute migration then turns it into a `cc-switch` custom provider table carrying the `PROXY_MANAGED` bearer — the same shape every other third-party takeover uses. Explicit provider selections are unchanged. ([#7263](https://github.com/farion1231/cc-switch/pull/7263), fixes [#6256](https://github.com/farion1231/cc-switch/issues/6256), refs [#7217](https://github.com/farion1231/cc-switch/issues/7217))
+
+#### Codex Usage Import Detects Growing Rollouts on Windows
+
+Codex keeps the rollout append handle open for the whole session, so on Windows NTFS the file mtime does not advance while the file grows, and the pure-mtime gate skipped growing rollouts forever. The observed byte length is now stored in the existing `session_log_sync.last_byte_offset` column for Codex rows, and a file is skipped only when both mtime and size are unchanged; the parser splits records on newlines manually so an incomplete trailing record is retried on the next pass without advancing the line cursor. A follow-up counts the bytes of an incomplete tail as observed too: only fully consumed records used to count toward the persisted length, so a rollout ending mid-record or in whitespace (a crashed session that was never resumed) always looked shorter than its file and was fully reparsed on every sync pass — the line cursor still stops before the incomplete record, so it is retried as soon as the file grows, while an unchanged file is skipped on the mtime+size gate. ([#7219](https://github.com/farion1231/cc-switch/pull/7219), fixes [#6060](https://github.com/farion1231/cc-switch/issues/6060); plus a follow-up commit)
+
+#### Tray Shows the Bound ChatGPT Account's Quota for Managed Codex Cards
+
+Since [#6537](https://github.com/farion1231/cc-switch/pull/6537) the tray deliberately dropped the usage suffix for Codex official cards bound to a managed ChatGPT account, because it only had an app-wide subscription cache fed by whatever login the Codex CLI currently holds (macOS Keychain first, then `auth.json`), which cannot represent account-scoped quota safely once several accounts are bound; the provider card queried the bound account, but that result never reached the tray, and users with multiple ChatGPT logins saw `Codex · <name>` with no quota at all. The usage cache gains an account-keyed Codex OAuth snapshot map that the quota query writes through to — transport errors keep the last good snapshot, auth/HTTP failures replace it so the tray hides an invalid quota instead of showing a stale one — and a tray refresh is scheduled on each write. A single `TrayUsageSource` decision is shared by the refresh and display paths: managed Codex cards read only their bound account's snapshot (never falling back to a provider-scoped or CLI snapshot), default to enabled when no usage toggle has been saved (matching the provider card), and the fixed official card takes the managed path too when it carries a binding. Rebinding switches to the new account's snapshot immediately, and a late response for the previous account cannot overwrite the label. (fixes [#7267](https://github.com/farion1231/cc-switch/issues/7267))
+
+#### DeepSeek's Codex Catalog Mirrors the Vision-Capable `deepseek-flash`
+
+The bundled DeepSeek official Codex catalog is refreshed to the vendor's current `models.json` (slug `deepseek-flash`, image input modality, `supports_image_detail_original`), and `deepseek-v4-flash` leaves the confirmed text-only table: DeepSeek still accepts the legacy id and routes it to the vision-capable V4.1 Flash, so the proxy's media sanitizer and the generated Codex catalog now fail open for it, instead of replacing images with `[Unsupported Image]` or hiding image input from Codex. ([#7286](https://github.com/farion1231/cc-switch/pull/7286), fixes [#7283](https://github.com/farion1231/cc-switch/issues/7283))
+
+#### Third-Party Token Plan DeepSeek V4 Rows Declared Text-Only
+
+With the official endpoint routing `deepseek-v4-flash` to a vision model, the id fails open everywhere, but Baidu Qianfan and Tencent Token Plan still host text-only V4 deployments — Qianfan's Coding Plan doc states that image input returns 400, and Tencent's 2026-09-10 plan rosters list V4 only. Their Codex preset rows (the flash and pro families, including `-0731`/`-0813`/`-202605`/`-202606`) now declare `inputModalities: ["text"]` explicitly instead of relying on the registry, and a preset test also locks the official DeepSeek preset to stay undeclared (fail-open). (follow-up to [#7283](https://github.com/farion1231/cc-switch/issues/7283))
+
+---
+
+### Upgrade Notes
+
+#### This Release Contains No Database Migration
+
+The schema version stays at 18. The Codex byte cursor reuses the existing `session_log_sync.last_byte_offset` column.
+
+#### Codex Rollouts Are Re-Parsed Once After Upgrading
+
+Codex rows have no stored byte length yet, so the first sync pass re-reads every rollout on every platform (CPU only; already-imported events are skipped by line offset, so nothing is counted twice). Later passes skip unchanged files.
+
+#### Per-App Proxy Settings That Were Already Overwritten Are Not Restored
+
+[#7210](https://github.com/farion1231/cc-switch/pull/7210) stops the clobber, but cannot recover the retry/timeout values that earlier shutdowns copied from Claude onto Codex, Gemini and Grok Build — check them once in the proxy settings and reset any that differ from what you configured.
+
+#### Universal Sync Preserves Child Settings From Now On
+
+Settings a previous sync already wiped (usage script, common-config opt-out, endpoint auto-select, sort position) have to be re-entered once.
+
+#### Codex Cards Without `model_provider` Now Route Through the Local Proxy Under Takeover
+
+After [#7263](https://github.com/farion1231/cc-switch/pull/7263) such cards no longer silently connect straight to `api.openai.com`, matching every other third-party takeover.
+
+#### Preset Changes Only Affect Newly Created Providers
+
+Existing cards keep the snapshot taken when they were created. Affected this release: Kimi's two Codex presets — an existing Kimi card is still `openai_chat` and keeps working through routing; to connect directly, set the card's upstream format to Responses or re-import the preset (note that Kimi open platform Tier 0 keys are limited to 3 requests per minute, which is not enough for a multi-request tool loop); the aggregator Codex catalogs; the 千问AI平台 rebrand and Qwen 3.8 (including Pi's QwenCloud Token Plan protocol switch); the MiniMax M3 defaults; the Volcengine Doubao display name; and the text-only declarations on the Qianfan/Tencent Token Plan DeepSeek rows (an existing card on those presets still relies on the reactive strip-and-retry for images, or re-import the preset).
+
+#### Codex Catalog Fixes Take Effect on the Next Provider Switch
+
+Catalog files are regenerated at switch time: this release's entry is the `deepseek-flash` vision row in the DeepSeek official catalog ([#7286](https://github.com/farion1231/cc-switch/pull/7286)). Switch away and back once on the DeepSeek card.
+
+#### Pricing
+
+`deepseek-flash` and `deepseek-v4-flash-vision-exp` are new seed rows, so the startup backfill prices the historical requests these ids had recorded at $0. The `deepseek-v4-flash` / `-0731` / `-pro` repair only corrects rows still on the seeded peak-tier values (0.44/1.32/0.014 and 1.32/3.96/0.044); customized rows are left alone, and historical costs are _not_ recomputed. The V4 Pro change lands ahead of DeepSeek's 2026-09-14 cutover, so V4 Pro requests made before then are costed at the Flash price. `deepseek-chat` and `deepseek-reasoner` keep their previous values.
+
+#### Anthropic Clients Probing a Responses Upstream With `max_tokens` 1–15 Now Send 16
+
+Nothing to configure.
+
+#### Chat-Upstream Codex Cards See One Prefix-Cache Miss After Upgrading
+
+The commentary-plus-tool-call message merged by [#7280](https://github.com/farion1231/cc-switch/pull/7280) changes the request bytes once; the shape is then stable turn to turn.
+
+#### Managed Codex Cards Show Quota in the Tray by Default
+
+Quota is shown when no usage toggle has been saved, matching the provider card; turn the card's usage toggle off to hide it.
+
+---
+
+### Risk Notice
+
+#### Carried-Over Notices
+
+**xAI Grok OAuth sign-in**: reuses the public OAuth client identity of the official Grok CLI; using it could lead to account restriction or suspension — see the [v3.18.0 release notes](/en/changelog/3.18.0#risk-notice) for details.
+
+**Codex OAuth reverse proxy**: using a ChatGPT subscription's Codex OAuth through a reverse proxy may violate OpenAI's terms of service. See the [v3.13.0 release notes](/en/changelog/3.13.0#risk-notice) for details.
+
+**SuperGrok quota queries**: the quota display on provider cards depends on a non-public billing endpoint at grok.com and may stop working once xAI changes the interface — see the [v3.19.0 release notes](/en/changelog/3.19.0#risk-notice) for details.
+
+**Third-party provider routing**: when the CC Switch local proxy converts and forwards Codex, Claude Desktop, or Grok Build requests to a third-party provider, each provider has different constraints on billing, compliance, and data retention. Please read the target provider's terms of service before use.
+
+By enabling these features, users accept the associated risks. CC Switch is not responsible for any account restriction, warning, or service suspension resulting from their use.
+
+---
+
+### Thanks
+
+11 of this release's 22 commits come from 8 outside contributors.
+
+#### Code Contributions
+
+- Thanks to @gongzhenhu: filtering empty `reasoning_content` placeholders ([#7227](https://github.com/farion1231/cc-switch/pull/7227), fixes [#5028](https://github.com/farion1231/cc-switch/issues/5028), [#4404](https://github.com/farion1231/cc-switch/issues/4404)), a first contribution; @AdJIa ([#4869](https://github.com/farion1231/cc-switch/pull/4869)), @U1traTC ([#6421](https://github.com/farion1231/cc-switch/pull/6421)) and @Hypocrite000 ([#6576](https://github.com/farion1231/cc-switch/pull/6576)) each proposed a fix for the same problem earlier.
+- Thanks to @fszcd: coalescing Codex commentary with its tool calls ([#7280](https://github.com/farion1231/cc-switch/pull/7280), fixes [#6529](https://github.com/farion1231/cc-switch/issues/6529)), a first contribution; @BigStrongSun self-reported the problem and submitted a fix in [#6530](https://github.com/farion1231/cc-switch/pull/6530), and @xu-xiang also attempted one in [#5895](https://github.com/farion1231/cc-switch/pull/5895).
+- Thanks to @SailingLoong: clamping the Claude Desktop probe's `max_tokens` to 16 ([#7287](https://github.com/farion1231/cc-switch/pull/7287), fixes [#7103](https://github.com/farion1231/cc-switch/issues/7103)) and the DeepSeek vision catalog mirror ([#7286](https://github.com/farion1231/cc-switch/pull/7286), fixes [#7283](https://github.com/farion1231/cc-switch/issues/7283)); @John1Tang had proposed a fix for the probe clamping earlier in [#7126](https://github.com/farion1231/cc-switch/pull/7126).
+- Thanks to @Komikawayi: three fixes — shutdown clobbering per-app proxy settings ([#7210](https://github.com/farion1231/cc-switch/pull/7210), fixes [#7204](https://github.com/farion1231/cc-switch/issues/7204)), universal provider sync preserving child metadata ([#7212](https://github.com/farion1231/cc-switch/pull/7212), fixes [#7134](https://github.com/farion1231/cc-switch/issues/7134)) and Codex honoring the proxy address when `model_provider` is missing ([#7263](https://github.com/farion1231/cc-switch/pull/7263), fixes [#6256](https://github.com/farion1231/cc-switch/issues/6256)).
+- Thanks to @woniuxiaoshu: the persisted byte cursor for Codex usage ([#7219](https://github.com/farion1231/cc-switch/pull/7219), fixes [#6060](https://github.com/farion1231/cc-switch/issues/6060)), a first contribution; @LimiChan-2026 ([#6080](https://github.com/farion1231/cc-switch/pull/6080), also the reporter of #6060), @woshimaxfive ([#6027](https://github.com/farion1231/cc-switch/pull/6027), who also reported the same symptom on Windows in [#6023](https://github.com/farion1231/cc-switch/issues/6023)) and @puppnn ([#6246](https://github.com/farion1231/cc-switch/pull/6246)) each proposed a fix for the same problem earlier.
+- Thanks to @thisTom: the three Codex image-generation follow-ups ([#7177](https://github.com/farion1231/cc-switch/pull/7177)), continuing their own [#7036](https://github.com/farion1231/cc-switch/pull/7036).
+- Thanks to @shigzz: the 千问AI平台 rebrand and the Qwen 3.8 refresh ([#7183](https://github.com/farion1231/cc-switch/pull/7183)), a first contribution.
+- Thanks to @jellyjelly814: the MiniMax M3 defaults and the expired-offer cleanup ([#7255](https://github.com/farion1231/cc-switch/pull/7255)), self-reported and self-fixed in [#7254](https://github.com/farion1231/cc-switch/issues/7254), a first contribution; @octo-patch had proposed the M3 default upgrade earlier in [#3567](https://github.com/farion1231/cc-switch/pull/3567), with M3 pricing and modalities in [#6396](https://github.com/farion1231/cc-switch/pull/6396).
+
+#### Issue Reports
+
+- Thanks to @Sunshine-SACA and @snowing0427 for reporting the empty thinking-block flood and content-block fragmentation ([#5028](https://github.com/farion1231/cc-switch/issues/5028), [#4404](https://github.com/farion1231/cc-switch/issues/4404)), and to @csj-ccc for adding a ModelScope Qwen3-Coder reproduction on v3.20.0 in #4404.
+- Thanks to @BigStrongSun and @aducker2016 for reporting the Responses-to-Chat conversion splitting an assistant turn ([#6529](https://github.com/farion1231/cc-switch/issues/6529), [#5860](https://github.com/farion1231/cc-switch/issues/5860)) — the latter traced DeepSeek's endless repetition to the same root cause.
+- Thanks to @haoyubai212 for reporting the Claude Desktop probe's 400 on Responses upstreams ([#7103](https://github.com/farion1231/cc-switch/issues/7103)).
+- Thanks to @HEYUESAMA for reporting DeepSeek images being replaced with `[Unsupported Image]` and the catalog declaring text-only ([#7283](https://github.com/farion1231/cc-switch/issues/7283)).
+- Thanks to @Jason-purse for reporting Codex's failover settings being overwritten by Claude's after a restart ([#7204](https://github.com/farion1231/cc-switch/issues/7204)).
+- Thanks to @auqhjjqdo for reporting that universal provider sync broke settings such as usage queries ([#7134](https://github.com/farion1231/cc-switch/issues/7134)).
+- Thanks to @pemagic for reporting Codex connecting straight to `api.openai.com` and bypassing local routing ([#6256](https://github.com/farion1231/cc-switch/issues/6256)), and to @Tiacoo for documenting how the same symptom looks on Codex 0.153.x in [#7217](https://github.com/farion1231/cc-switch/issues/7217).
+- Thanks to @LimiChan-2026 and @MoEternal for reporting Codex usage being missed on Windows ([#6060](https://github.com/farion1231/cc-switch/issues/6060), [#7264](https://github.com/farion1231/cc-switch/issues/7264)).
+- Thanks to @ringzxw for reporting that the tray showed no quota when several ChatGPT accounts are bound ([#7267](https://github.com/farion1231/cc-switch/issues/7267)).
+
+---
+
+### Download & Install
+
+Visit [Releases](https://github.com/farion1231/cc-switch/releases/latest) and download the build for your system, or get it from the official site [ccswitch.io](https://ccswitch.io) (downloads are distributed through Cloudflare edge nodes and do not depend on GitHub being reachable).
+
+#### System Requirements
+
+| System  | Minimum Version      | Architecture                        |
+| ------- | -------------------- | ----------------------------------- |
+| Windows | Windows 10 and later | x64 / ARM64                         |
+| macOS   | macOS 12 (Monterey)+ | Intel (x64) / Apple Silicon (arm64) |
+| Linux   | See table below      | x64 / ARM64                         |
+
+#### Windows
+
+| File                                     | Description                                      |
+| ---------------------------------------- | ------------------------------------------------ |
+| `CC-Switch-v3.20.3-Windows.msi`          | **Recommended** - MSI installer with auto-update |
+| `CC-Switch-v3.20.3-Windows-Portable.zip` | Portable build, unzip and run                    |
+
+Windows ARM64 devices should pick the artifact whose file name carries the `arm64` tag.
+
+#### macOS
+
+| File                             | Description                                           |
+| -------------------------------- | ----------------------------------------------------- |
+| `CC-Switch-v3.20.3-macOS.dmg`    | **Recommended** - DMG installer, drag to Applications |
+| `CC-Switch-v3.20.3-macOS.zip`    | Unzip and drag to Applications, Universal Binary      |
+| `CC-Switch-v3.20.3-macOS.tar.gz` | For Homebrew install and auto-update                  |
+
+Homebrew install:
+
+```bash
+brew install --cask cc-switch
+```
+
+Upgrade:
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux assets are available for both **x86_64** and **ARM64** (`aarch64`). Choose the file whose architecture tag matches your machine's `uname -m` output:
+
+- `CC-Switch-v3.20.3-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.3-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| Distribution                            | Recommended Format | Install Command                                                        |
+| --------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`             | `sudo dpkg -i CC-Switch-*.deb` or `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`             | `sudo rpm -i CC-Switch-*.rpm` or `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`             | `sudo zypper install ./CC-Switch-*.rpm`                                |
+| Arch Linux / Manjaro                    | `.AppImage`        | Make executable and run directly, or use AUR                           |
+| Other distributions / unsure            | `.AppImage`        | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`              |
+
+## [3.20.2] - 2026-09-07
+
+> Codex is still this release's main line, but the shape changes from last release's "one redesign" to "a wave of compatibility fixes": **Grok finally runs under Codex routing through xAI's native Responses API** — the tool schemas xAI rejects, the integer-valued floats Codex rejects, the mailbox messages multi-agent mode injects and the Codex role models xAI does not know are dismantled one by one; around it, a family of one-cause-one-effect fixes: Grok OAuth cards are no longer wrongly refused by v3.20.1's switch gate, takeover no longer leaves Codex stuck on the login screen, GPT-6 over Codex OAuth no longer fails with "update Codex", Claude Code regains parallel tool calls over Codex OAuth, built-in image generation works under local routing, four catalog defects close (older Codex refusing the catalog, MCP tools hidden under DeepSeek, vision models judged text-only, Kimi tool-schema 400s), and the Zhipu GLM presets move to the official Responses endpoint. On the usage side, two hard fixes land: Codex usage stalling after a resume, and the proxy breaking prefix caching every turn. The preset library gains Tencent Cloud Token Plan, QwenCloud, AICodeWith and two sponsors, 9527CODE and SoleAPI; the pricing table gains seven new models and a September repricing pass. **This release contains no database migration.**
+
+### Highlights: What You Can Do Now
+
+- **Run Grok in Codex through xAI's native Responses API** ([#6917](https://github.com/farion1231/cc-switch/pull/6917), fixes [#6815](https://github.com/farion1231/cc-switch/issues/6815)): the Codex Desktop tool schemas xAI rejects are collapsed, the integer-valued floats Grok returns are rewritten, multi-agent `agent_message` subtask items are translated into ordinary messages, and role models like `gpt-5.6-sol` are mapped onto your configured Grok model — sub-agents no longer 422 and tool calls are no longer refused.
+- **Switch to Grok OAuth cards and take them over normally**: v3.20.1's keyless safety gate wrongly refused OAuth cards whose token the proxy injects; takeover no longer traps Codex on the login screen after a direct switch deleted `auth.json`.
+- **Use GPT-6 through Codex OAuth takeover** ([#7132](https://github.com/farion1231/cc-switch/pull/7132)): the self-reported Codex client version rises to 0.153.4, so the ChatGPT backend no longer rejects it with "update Codex".
+- **Let Claude Code call tools in parallel over Codex OAuth** ([#7024](https://github.com/farion1231/cc-switch/pull/7024), fixes [#5719](https://github.com/farion1231/cc-switch/issues/5719)): `parallel_tool_calls` now defaults to true; a turn is no longer limited to a single tool call.
+- **Use built-in image generation and editing under Codex routing** ([#7036](https://github.com/farion1231/cc-switch/pull/7036), fixes [#5429](https://github.com/farion1231/cc-switch/issues/5429), [#6745](https://github.com/farion1231/cc-switch/issues/6745)): the `/images/generations` and `/images/edits` routes pass through the local proxy, with usage accounted by token.
+- **See MCP tools under the native DeepSeek presets** ([#6653](https://github.com/farion1231/cc-switch/pull/6653), fixes [#6647](https://github.com/farion1231/cc-switch/issues/6647)): the catalog no longer claims a `tool_search` DeepSeek does not offer, so MCP tools are listed directly.
+- **Stop hitting guaranteed 400s from Codex Desktop to Kimi/Moonshot through the local proxy** ([#6863](https://github.com/farion1231/cc-switch/pull/6863), fixes [#6867](https://github.com/farion1231/cc-switch/issues/6867)): `$ref` with sibling keywords is rewritten into `allOf` for Moonshot domains only; every other provider's schema is byte-for-byte unchanged.
+- **Connect Zhipu GLM directly in Codex** (#6957, fixes [#6944](https://github.com/farion1231/cc-switch/issues/6944)): the presets now target the official Responses endpoint `/api/v1` with glm-5.3 as the default; existing cards need a re-import.
+- **Keep accumulating usage after a resume** ([#6905](https://github.com/farion1231/cc-switch/pull/6905), fixes [#6904](https://github.com/farion1231/cc-switch/issues/6904)): the dual-UUID rollout file written when a reverted thread is resumed is no longer quarantined forever, and the backlog is backfilled to its original dates.
+- **Hit the prefix cache again on OpenAI-format upstreams** ([#6941](https://github.com/farion1231/cc-switch/pull/6941), fixes [#6789](https://github.com/farion1231/cc-switch/issues/6789)): the mid-conversation system message Claude Code injects every turn is no longer merged to the front of the conversation, so cache hit rates on endpoints like DeepSeek, GLM and Kimi no longer fall from 99% to 20%.
+- **Add new providers in one click**: Tencent Cloud Token Plan (six apps, [#7011](https://github.com/farion1231/cc-switch/pull/7011)), QwenCloud (seven apps, [#6214](https://github.com/farion1231/cc-switch/issues/6214)), AICodeWith (eight apps), sponsors 9527CODE and SoleAPI (nine apps); Pi gains Tencent TokenHub / Token Plan ([#7159](https://github.com/farion1231/cc-switch/pull/7159)) and PPIO ([#6870](https://github.com/farion1231/cc-switch/pull/6870)).
+- **See real costs for Fable 5.1 / Mythos 5.1, GPT-6 Astra, GLM-5.3 and Gemini 3.8 Flash**: these requests used to be billed at $0; Sonnet 5 returns to $2/$10 per Anthropic's now-standard pricing.
+- **See the Hermes upgrade button again**: the latest version is read from GitHub Releases instead of staying frozen at PyPI's 0.19.0.
+
+---
+
+### Usage Guides
+
+- **[Adding Providers](/en/docs?section=providers&item=add)**: where to import the new presets, and what "preset changes only affect newly created providers" means.
+- **[Request Routing](/en/docs?section=proxy&item=routing)**: Grok through xAI's native Responses and Codex image-endpoint passthrough both travel this path.
+- **[Usage Statistics](/en/docs?section=proxy&item=usage)**: how pricing backfill and resume-backlog usage are counted.
+
+---
+
+> [!WARNING]
+>
+> ## Only Official Channels (Please Read)
+>
+> CC Switch is a **fully free and open-source** desktop app, and we **do not charge users any fees**. Please only obtain the software through the official channels listed below:
+>
+> | Channel            | Only Official                                                                  |
+> | ------------------ | ------------------------------------------------------------------------------ |
+> | Website            | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | Source             | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | Downloads          | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | Author             | **[@farion1231](https://github.com/farion1231)**                               |
+> | Report an Imposter | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **Any "CC Switch" website or client that asks you for payment, top-ups, or login credentials is fake.** If you have been tricked into paying, stop the transaction immediately and file a report through GitHub Issues.
+
+---
+
+### Overview
+
+Development since v3.20.1 is again led by Codex, but this time as a wave of compatibility fixes rather than a redesign. The longest line is Grok: xAI's native Responses API disagrees with Codex's assumptions in several places — it rejects Codex Desktop's tool schemas before sampling, Grok returns JSON integers with a decimal point that Codex's parser refuses, the `agent_message` mailbox items Codex's multi-agent mode injects cannot be deserialized by xAI, and Codex's own role models (such as `gpt-5.6-sol`) simply 404 at xAI. This release dismantles all four behind one native-Responses gate, and Grok finally works fully under Codex routing, sub-agents included.
+
+Around it sits a family of one-cause-one-effect fixes: the keyless safety gate introduced in v3.20.1 wrongly refused Grok OAuth cards whose token the proxy injects; enabling takeover after a direct switch deleted `auth.json` left Codex trapped on the login screen by a stale `requires_openai_auth = true`; GPT-6 through Codex OAuth takeover was rejected by the backend for an outdated client version; Claude Code was forced into serial tool calls over Codex OAuth; built-in image generation 404ed under local routing; four catalog defects — older Codex refusing to load the catalog, MCP tools all hidden under the DeepSeek presets, DeepSeek vision models judged text-only, Kimi tool schemas failing with a guaranteed 400 — each close; and the Zhipu GLM presets move from the Chat endpoint to the official Responses endpoint. Two hard usage fixes land as well: Codex usage silently stalling after a resume, and the proxy merging the mid-conversation system message Claude Code injects every turn to the front, breaking the upstream prefix cache.
+
+The preset library gains Tencent Cloud Token Plan, QwenCloud, AICodeWith and sponsors 9527CODE and SoleAPI, with Pi gaining Tencent and PPIO; the pricing table gains seven new model rows and a repricing pass against each vendor's September official price page. This release does not change the database schema.
+
+**Release date**: 2026-09-07
+
+**Change size**: 52 commits | 71 files changed | +10,483 / -573 lines
+
+---
+
+### Added
+
+#### New Provider Presets
+
+Tencent Cloud Token Plan (six products × six apps, [#7011](https://github.com/farion1231/cc-switch/pull/7011)), QwenCloud (three plans × seven apps, [#6214](https://github.com/farion1231/cc-switch/issues/6214)), AICodeWith (eight apps) and two sponsors, 9527CODE and SoleAPI (nine apps), join the preset library; Pi gains Tencent TokenHub / Token Plan ([#7159](https://github.com/farion1231/cc-switch/pull/7159)) and PPIO ([#6870](https://github.com/farion1231/cc-switch/pull/6870)). Existing providers are unaffected; the cases that need a re-import are listed under Upgrade Notes.
+
+#### Pricing Rows for Seven New Models
+
+Claude Fable 5.1 and Mythos 5.1: $10/$50 per million tokens, cache read $0.25, cache write $12.50 ([#7051](https://github.com/farion1231/cc-switch/pull/7051), fixes [#7050](https://github.com/farion1231/cc-switch/issues/7050)) — there was no row before, so these requests were all billed at $0, because the prefix rule only looks for longer dated ids and cannot fall back to `claude-fable-5`; GLM-5.3: $1.40/$4.40, cache read $0.26, matching Z.ai's official price ([#6591](https://github.com/farion1231/cc-switch/pull/6591)); GLM-5.3 Flash: $0.15/$0.50, cache read $0.03 ([#7163](https://github.com/farion1231/cc-switch/pull/7163)); GPT-6 Astra: $10/$50, cache read $1, cache write $12.50, with the low/medium/high/xhigh suffixes falling back to the base row ([#7162](https://github.com/farion1231/cc-switch/pull/7162)); Gemini 3.8 Flash: $0.75/$3.75, cache read $0.075, no cache-write charge ([#7164](https://github.com/farion1231/cc-switch/pull/7164)); Qwen3.8 Flash: $0.15/$0.47, no tiering within the 1M window, cache read/write $0.016/$0.20. All are seed rows only, with no schema change; existing installs pick them up on the next start, and the startup cost backfill prices the historical rows these ids had recorded at $0.
+
+---
+
+### Changed
+
+#### September 2026 Repricing
+
+Sonnet 5 returns to $2/$10 — Anthropic's price page now states the introductory price is the standard price, and the planned rise to $3/$15 on September 1 is no longer happening — with a guard fix: installs still on the seed values 3/15/0.30/3.75 are corrected, user-customized rows are left alone ([#7051](https://github.com/farion1231/cc-switch/pull/7051)). GPT-5.6 Sol, bare `gpt-5.6` and its five tier-suffix rows drop from $5/$30 (cache read $0.50, write $6.25) to the promotional $4/$20 (cache read $0.40, write $5), through at least 2026-11-21. Gemini 3.6 Flash drops from $1.50/$7.50/$0.15 to the same introductory $0.75/$3.75/$0.075 as 3.8 Flash, until 2026-12-31. MiniMax M2, M2.1 and M2.5 are unified on the official pay-as-you-go price of $0.30/$1.20, cache read $0.03, cache write $0.375 — the latter was previously recorded as zero. Every repricing is a seed plus a repair entry guarded on the old value, appended after the existing chain, so older databases pass through the intermediate prices step by step.
+
+---
+
+### Fixed
+
+#### Grok Runs Under Codex Routing Through xAI's Native Responses API
+
+A series of contributed commits closes four independent failures on the native-Responses path to xAI. xAI rejects Codex Desktop's built-in tool schemas before sampling, so root-level `oneOf`/`anyOf` function parameters are collapsed on the request path ([#6815](https://github.com/farion1231/cc-switch/issues/6815)), taking the intersection rather than the union of each branch's required list so a flattened `oneOf` never demands a field the chosen branch lacks. Grok returns JSON integers with a decimal point, which Codex's parser refuses as integers, so integer-valued floats inside completed `function_call` arguments are rewritten (exactly 2^64 is now rejected outright instead of silently rewritten off by one). The `agent_message` mailbox items Codex's multi-agent mode injects cannot be deserialized by xAI, so every subtask 422ed before any tool ran — those items are rewritten as ordinary user messages, with encrypted content flattened to text. xAI 404s Codex's role models (such as `gpt-5.6-sol`), so unknown requested models are mapped to the provider's configured model (catalog entries like `grok-4.5` and any `grok`-prefixed id pass through unchanged), and the mapping runs before sanitization so a sub-agent landing on grok-4.5 also gets its unsupported sampling fields stripped. All of it lives in a standalone module behind one native-Responses gate, so it can be rebased or cherry-picked until upstream covers the same cases. The xAI preset for grok-4.5 now declares low/medium/high/xhigh: measured on 2026-08-30, the endpoint accepts those four and returns HTTP 400 for `max`, and Codex does not clamp out-of-catalog levels. ([#6917](https://github.com/farion1231/cc-switch/pull/6917))
+
+#### Codex Cards Switching to Grok OAuth Are No Longer Refused
+
+v3.20.1's config-only switch refactor extended the keyless safety gate to every write path and caught proxy-managed OAuth cards (xAI Grok OAuth) in the crossfire: they are keyless by design — the local proxy injects the real token per request — but their preset snapshots inherited `requires_openai_auth = true` from the pre-0.149 template, and the gate read that as "will fall back to the official login" and refused the switch. The fix is to the snapshot, not an exception to the gate: for proxy-injected OAuth providers (xAI OAuth and GitHub Copilot; Codex OAuth is deliberately excluded, since the official login _is_ its credential) the flag is forced to `false` on the active custom table, hooked into the shared effective-provider builder so preflight, ordinary writes and proxy backup/takeover projections all see the same shape, and Codex 0.149 treats the card as unauthenticated without reading `auth.json`. The preset source now emits `false` from the start, and existing cards self-heal on their next switch.
+
+#### Takeover No Longer Traps Codex on the Login Screen
+
+With "Keep official login for direct switches" off (the default), a direct switch to a third-party provider deletes `~/.codex/auth.json`; enabling proxy takeover afterwards rebuilt `config.toml` from the stored card, which still carried the pre-0.149 `requires_openai_auth = true`, so Codex ≥ 0.149 stopped at the login screen even with the proxy's placeholder bearer token in place — running `codex logout` during takeover and then hot-switching hit the same trap. The takeover writer now stamps the flag on the active custom table according to the login state Codex itself would observe, aligned with the direct-switch plan: the auth mode is resolved by Codex's own rules first (explicit `auth_mode`, then personal access token, Bedrock API key, Bedrock access keys, `OPENAI_API_KEY`, ChatGPT) and only then checked against the credentials, so a Bedrock credential sitting next to an expired API key is never promoted to an OpenAI login; the credential store is determined before `auth.json` is touched — keyring and auto stores cannot be judged from disk and keep the card's value, an ephemeral store always counts as logged out, and only the file store reads the file, where a missing, unreadable or corrupt file counts as logged out and no longer fails the takeover write. Proxy-injected OAuth cards keep their neutralized `false` whatever is on disk; the official passthrough and managed-official branches are untouched.
+
+#### Duplicate Managed ChatGPT Accounts Are Refused
+
+An ordinary managed-account login whose ChatGPT workspace _and_ stable user identity (the id_token subject) both match an existing account is refused with a localized message instead of creating a second row. The check runs inside the storage lock, so concurrently completing logins cannot slip a duplicate through; the refresh lock is now acquired only for targeted re-authentication, and a refused add leaves no lock entry behind. Different users in the same workspace still coexist. ([#7061](https://github.com/farion1231/cc-switch/pull/7061))
+
+#### GPT-6 Through Codex OAuth Takeover Is No Longer Rejected With "Update Codex"
+
+`gpt-6-astra` requests on the Claude-to-Codex OAuth route self-reported Codex 0.144.1, below the model's minimum client version of 0.153.0, so the ChatGPT backend answered HTTP 400. The self-reported version rises to 0.153.4, and the originator and version constants are shared between generation and model discovery — the latter used to send cc-switch's own package version and originator. ([#7132](https://github.com/farion1231/cc-switch/pull/7132), refs [#7129](https://github.com/farion1231/cc-switch/issues/7129))
+
+#### Claude Code Regains Parallel Tool Calls Over Codex OAuth
+
+When an Anthropic-originated request gave no explicit value, Codex OAuth requests defaulted `parallel_tool_calls` to false, forcing Claude Code into one tool call per turn. The default is now true (matching codex-rs), Anthropic's `tool_choice.disable_parallel_tool_use` maps to the inverse on the Responses side, and explicit serial mode is still honored. Picks up [#5722](https://github.com/farion1231/cc-switch/pull/5722). ([#7024](https://github.com/farion1231/cc-switch/pull/7024), fixes [#5719](https://github.com/farion1231/cc-switch/issues/5719))
+
+#### Codex Built-In Image Generation Works Under Routing
+
+Codex's ImageGen tool calls the legacy OpenAI Images API, but the local proxy only registered the Responses, Chat Completions, Compact and Alpha Search routes, so `/v1/images/generations` came back as an empty 404. The generations aliases (bare path, `/v1`, `/v1/v1`, `/codex/v1`) are now forwarded as a Codex-only passthrough shared with Alpha Search; Alpha Search's full-URL rewrite is generalized to derive a sibling Images URL from a full Responses/Compact/Chat URL (an existing Images URL is kept as is; an opaque full URL fails closed), and the input/output tokens in the response are accounted through the Codex usage parser. A follow-up adds `/images/edits` — ImageGen switches to it as soon as it references an existing image (an explicit path or the last N generated), and it was still hitting the empty route; the two routes share one suffix table, so a provider configured with a full URL for either derives the other. ([#7036](https://github.com/farion1231/cc-switch/pull/7036), fixes [#5429](https://github.com/farion1231/cc-switch/issues/5429), [#6745](https://github.com/farion1231/cc-switch/issues/6745))
+
+#### Older Codex Loads the Catalog Again
+
+Codex 0.144.5 through 0.148.0-alpha.15 declare `supports_parallel_tool_calls` a required catalog field, while upstream removed it from model info on 2026-08-14 — a `models_cache.json` refreshed by a newer build lacks the field, and the ProxyChat catalog cloned from it is refused by an older Codex on the same machine with "missing field". The field joins the required-field backfill list, taking its value (true) from the built-in gpt-5.5 template; existing values are never overwritten, and newer builds ignore the extra key. Verified with real binaries: the old catalog is refused by 0.147.0 and 0.148.0-alpha.15, the new one loads on both and on 0.148.0. ([#6666](https://github.com/farion1231/cc-switch/pull/6666), fixes [#6661](https://github.com/farion1231/cc-switch/issues/6661), [#6709](https://github.com/farion1231/cc-switch/issues/6709))
+
+#### MCP Tools Are Visible Again Under the Native DeepSeek Presets
+
+The bundled official catalog declared `supports_search_tool = true` for deepseek-v4-pro and deepseek-v4-flash, and Codex uses that flag to decide whether to defer MCP tools behind `tool_search` — which DeepSeek's Responses API does not offer at all, so every MCP tool was hidden and none could be called. Both models now declare false and Codex lists MCP tools directly; hosted web search is gated by provider capability rather than this flag and is unaffected, and DeepSeek's server-side web search keeps working. ([#6653](https://github.com/farion1231/cc-switch/pull/6653), fixes [#6647](https://github.com/farion1231/cc-switch/issues/6647))
+
+#### Vision Models in the DeepSeek Mirror Catalog Are No Longer Judged Text-Only
+
+Models absent from the bundled DeepSeek catalog cloned the flagship entry and inherited its text-only input modalities, so vision models like `deepseek-v4-flash-vision-exp` lost image input. Unmatched models now resolve modalities through the registry like the non-vendor path, passing through on failure; user-set modalities still win, and matched models keep the vendor's declaration verbatim. Separately, `glm-5.3` joins the confirmed text-only list, with its `[1M]` variant recognized and `glm-5.3v` untouched ([#6851](https://github.com/farion1231/cc-switch/pull/6851)). ([#6750](https://github.com/farion1231/cc-switch/pull/6750), fixes [#6725](https://github.com/farion1231/cc-switch/issues/6725))
+
+#### Codex Desktop to Kimi/Moonshot Through the Local Proxy No Longer Hits Guaranteed Tool-Schema 400s
+
+Moonshot's Chat Completions validator (`api.moonshot.cn`, `api.moonshot.ai` and the Kimi For Coding endpoint `api.kimi.com`) rejects `$ref` with sibling keywords, and Codex Desktop's built-in tool schemas are exactly that shape — every desktop turn routed to Kimi through the local proxy failed. When the resolved upstream domain is Moonshot/Kimi, each `$ref` with siblings is moved into an `allOf` after the Responses-to-Chat conversion, siblings left in place; the walk only descends into keywords that hold schema values, and the rewrite is idempotent. Every other provider's tool schemas are byte-for-byte unchanged, and the Codex-to-Anthropic path is untouched — Moonshot's Anthropic-compatible endpoint accepts the original shape. ([#6863](https://github.com/farion1231/cc-switch/pull/6863), fixes [#6867](https://github.com/farion1231/cc-switch/issues/6867))
+
+#### Zhipu GLM's Codex Presets Target the Official Responses Endpoint
+
+Zhipu's docs for each site list three base URLs — Anthropic `/api/anthropic`, Chat `/api/coding/paas/v4`, Responses `/api/v1` — and warn that the wrong one cannot consume Coding Plan quota; the Codex direct-connect guide means Responses, and the 400 `unknown variant custom` came from the strict legacy gateway behind the Chat endpoint. The "Zhipu GLM" and "Zhipu GLM (en)" presets move to native Responses on `/api/v1` (shell-command edits, no freeform apply_patch) and mirror the official model list: glm-5.3 (1M window, low/high/max, default max), plus glm-5-turbo on the China site; glm-5.2 and the `none` level are dropped. A domain fallback gives rows still saved as Chat format but already on a native-Responses base URL the Responses catalog without a re-save (Chat endpoint paths excluded); vendor domains match on DNS label boundaries, so `z.ai` no longer captures `xyz.ai`; and `bigmodel.cn`, `z.ai` and the `glm` prefix join the Codex hosted web-search deny list. (#6957, fixes [#6944](https://github.com/farion1231/cc-switch/issues/6944))
+
+#### Codex Usage No Longer Stalls After a Resume
+
+When a thread is reverted, Codex creates a replacement rollout file carrying two UUIDs (`rollout-<ts>-<threadId>_<rolloutId>.jsonl`), and every later resume of that thread appends to it; the file's root metadata keeps the original thread id, but the importer's consistency check compared it only against the trailing UUID of the file name — such files were quarantined forever, and usage silently stopped accumulating from the moment the user resumed the thread (reproduced on site: 152 unimported token-count events, the quarantine warning repeating every 60 seconds). The check now also accepts a metadata id matching the leading UUID of a dual-segment name; single-UUID names keep the strict check, and ordinary sessions that were never reverted were never affected. Such files now store the leading logical thread id as the session id — the key the session list uses — rather than the trailing rollout id; the trailing id continues to serve as the request-id prefix, so multiple segments of one thread cannot collide on the dedup key. ([#6905](https://github.com/farion1231/cc-switch/pull/6905), fixes [#6904](https://github.com/farion1231/cc-switch/issues/6904))
+
+#### Prefix Caching Is No Longer Broken Every Turn
+
+The Anthropic-to-OpenAI conversion merged every system message to the front of the conversation, while Claude Code injects `<total_tokens>` metadata as a mid-conversation system message on every turn — the merge changed the prefix each turn and made the upstream's radix prefix cache useless. Top-level system blocks are still merged into a single leading system message (byte-stable across turns); system messages inside the message list now stay in place, neither merged nor reordered. The reporter measured hit rates falling from 99% to 20% on OpenAI-format endpoints such as DeepSeek, GLM and Kimi because of this. ([#6941](https://github.com/farion1231/cc-switch/pull/6941), fixes [#6789](https://github.com/farion1231/cc-switch/issues/6789))
+
+#### Hermes "Latest Version" Reads GitHub Releases
+
+The tools panel asked PyPI, but upstream stopped publishing there after 0.19.0 (2026-07-20) and ships only through GitHub Releases — users saw a frozen "latest 0.19.0", often below their installed version, and the upgrade button never appeared. PyPI was never the channel cc-switch installs or upgrades Hermes through (the official install script and `hermes update` both use git), so the probe now checks GitHub Releases first and falls back to PyPI only when GitHub is unreachable or rate-limited. The semantic version is parsed from the release name (`Hermes Agent v0.21.0 (v2026.8.31)`) because the tag is a calendar version; both paths reject calendar numbers so `2026.8.31` is never reported as a permanent "update available"; a PyPI fallback value below the installed version is hidden; and both probes get a 15-second timeout instead of the shared client's 600 seconds — which used to freeze the Hermes card and the refresh / upgrade-all buttons while `api.github.com` hung. (refs [#6475](https://github.com/farion1231/cc-switch/issues/6475), [#6618](https://github.com/farion1231/cc-switch/issues/6618), [#7033](https://github.com/farion1231/cc-switch/issues/7033); supersedes [#6621](https://github.com/farion1231/cc-switch/pull/6621))
+
+#### Opus 5 and Sonnet 5 Appear in Claude Code's Model Menu Under Takeover
+
+The stable role aliases takeover writes for Claude Code move from `claude-opus-4-8`/`claude-sonnet-4-6` to `claude-opus-5`/`claude-sonnet-5`, in line with the Claude Desktop default routes and preset defaults that had already migrated. `opus-5` joins the adaptive-thinking classifier, so the Bedrock thinking optimizer, which runs on the client alias before model mapping, keeps emitting adaptive thinking rather than the removed `budget_tokens`. Routing is unaffected — the proxy maps client aliases by role keyword — and the aliases are rewritten automatically the next time the proxy starts. ([#5882](https://github.com/farion1231/cc-switch/pull/5882), fixes [#5876](https://github.com/farion1231/cc-switch/issues/5876))
+
+#### "Fetch Models" Works for the PPIO, JieKou and Novita Claude Presets
+
+All three serve an Anthropic-compatible API under one path but hang the OpenAI-compatible model list under `/openai/v1`, so every candidate derived from the base URL 404ed and model discovery had never succeeded. Each of the three presets now pins an explicit model-list URL, which the form looks up by the card's base URL at fetch time — existing cards still on the preset's default address get it without any change; a JieKou test that locked in the wrong behavior is removed. ([#6870](https://github.com/farion1231/cc-switch/pull/6870) and follow-ups)
+
+#### Miscellaneous Fixes
+
+- **No more ghost "journal" sessions in the Claude session list**: Claude Code's workflow feature writes `journal.jsonl` into the session directory, and the scanner only excluded `agent-*` files, so every journal was parsed as an empty session titled "journal". ([#6043](https://github.com/farion1231/cc-switch/pull/6043), fixes [#6042](https://github.com/farion1231/cc-switch/issues/6042))
+- **Update checks show the real reason on failure**: the updater plugin rejects with a plain string, so an `instanceof Error` check never matched; the actual cause (network error, rate limit, malformed manifest) was replaced by a generic fallback and parked in a state nothing read. The recovered message now reaches the failure toast directly. ([#6482](https://github.com/farion1231/cc-switch/pull/6482))
+- **Proxy-address masking no longer crashes on multi-byte characters**: the fallback branch used when a proxy URL fails to parse cut hard at byte 20 and panicked whenever a multi-byte UTF-8 character straddled that offset — pasting Chinese text into the global proxy address was enough to trigger it; the cut now lands on a character boundary. ([#6908](https://github.com/farion1231/cc-switch/pull/6908))
+- **Pi's duplicate-key error and collapse label show text instead of raw keys**: the translation key the Pi backend's duplicate-key error mapped to did not exist in any of the four languages, and the accessible label of the thinking-map collapse button was missing too; both are added for zh/en/ja/zh-TW and locked in by the locale coverage test. ([#6768](https://github.com/farion1231/cc-switch/pull/6768))
+- **Screen readers can name icon-only controls**: the icon-only back button, the header's local-routing toggle, the project-switcher popover, the Claude JSON editor and the import checkboxes for existing Skills now carry programmatic names, reusing existing strings where possible plus two short new labels. ([#7049](https://github.com/farion1231/cc-switch/pull/7049), fixes [#7048](https://github.com/farion1231/cc-switch/issues/7048))
+- **The usage trend chart's token axis uses localized compact notation**: ticks were fixed to "value/1000 plus k", so heavy days read `1500k`; they now use the locale's compact notation (`1.5M`), with the axis width adjusted to match. ([#7016](https://github.com/farion1231/cc-switch/pull/7016))
+- **The pricing-source dropdown fits localized text**: the pricing-model source selector in the usage cost settings left about 70 px for the label while English and Japanese need about 107 px; it is widened and height-aligned with the neighboring inputs. ([#6980](https://github.com/farion1231/cc-switch/pull/6980))
+
+---
+
+### Upgrade Notes
+
+#### This Release Contains No Database Migration
+
+The schema version stays at 18, and no migration backup is created.
+
+#### Preset Changes Only Affect Newly Created Providers
+
+Existing cards keep the snapshot taken when they were created. Affected this release: the Zhipu GLM presets (an existing Zhipu Codex card still points at the Chat endpoint and direct connection still fails — re-import the preset to get `/api/v1`), the thinking controls in the Tencent Pi presets (re-import for a genuinely effective "off" and the corrected Kimi levels), the xhigh level for grok-4.5, and the removal of `minimax-m2.5` from the Tencent presets. The PPIO, JieKou and Novita model-list URLs are the exception: the form looks up the preset by the card's base URL, so existing cards still on the default address need no change.
+
+#### Codex Catalog Fixes Take Effect on the Next Provider Switch
+
+Catalog files are regenerated at switch time: DeepSeek MCP visibility ([#6653](https://github.com/farion1231/cc-switch/pull/6653)), the `supports_parallel_tool_calls` backfill ([#6666](https://github.com/farion1231/cc-switch/pull/6666)), vision modalities ([#6750](https://github.com/farion1231/cc-switch/pull/6750)) and the glm-5.3 text-only entry ([#6851](https://github.com/farion1231/cc-switch/pull/6851)) all fall in this group. Switch away and back once on the affected card.
+
+#### Codex OAuth Takeover Now Self-Reports Codex 0.153.4
+
+No configuration needed. If you use the Codex CLI directly, bypassing cc-switch, GPT-6 requires a local Codex ≥ 0.153.0.
+
+#### An Existing ChatGPT Account in the Auth Center Can No Longer Be Added Twice
+
+Adding the same user in the same workspace again is refused; use "Re-login" on that account's row instead. Different users in the same workspace still coexist.
+
+#### Grok OAuth Cards Self-Heal on the Next Switch
+
+The `requires_openai_auth` flag is backfilled to `false`; no re-add is needed.
+
+#### `requires_openai_auth` Is Overridden on Takeover Writes According to Codex's Credential Store
+
+The flag on the active third-party table is now overridden on every takeover write according to the login state Codex would observe: with the file store (the default) it follows whether `auth.json` holds an official login; with an ephemeral store Codex starts logged out every time, so the flag is written `false`; with the keyring and auto stores the login state cannot be read from disk, and the card's value is left alone.
+
+#### Usage Stalled by a Resume Is Backfilled on the Next Scan
+
+Backfilled entries are booked on the dates they actually occurred, so dashboard totals for those days may jump. Reverted threads record the correct session id from now on; rows written earlier under the rollout id are not rewritten.
+
+#### Pricing
+
+The Sonnet 5 guard only corrects rows still on the seed values 3/15/0.30/3.75; customized Sonnet 5 rows are left alone, and historical Sonnet 5 costs are _not_ recomputed — cost is frozen at record time, and the backfill only prices rows recorded at $0 (so history for Fable 5.1, GLM-5.3, GLM-5.3 Flash, GPT-6 Astra and Gemini 3.8 Flash _is_ priced). The MiniMax M2 family gains a previously-zero cache-write price, so that share of costs rises going forward. The GPT-5.6 promotion (through at least 2026-11-21) and the Gemini 3.6/3.8 Flash introductory prices (until 2026-12-31, then $1.50/$7.50/$0.15) both have end dates the pricing table cannot express; a later release will re-seed them.
+
+#### Image Generation Through Codex Routing Is Counted by Token, With No Built-In Pricing Yet
+
+Image models have no pricing rows yet, so their cost shows as $0 until one is added.
+
+#### Hermes Version Probing Shows "Unknown" When Degraded
+
+When GitHub is unreachable and the PyPI fallback is below your installed version, "unknown" is shown instead of a misleading "latest 0.19.0".
+
+#### Mid-Conversation System Messages Are Now Forwarded in Place
+
+Mid-conversation system messages sent to OpenAI-format upstreams are no longer merged to the front, which is exactly why prefix-cache hits recover, and matches the shape Claude Code sends natively. Two knock-on effects: the first request after upgrading changes the prefix bytes, so the cache goes cold once and then recovers; and strict backends that require every system message at the very beginning (endpoints like Nvidia and Qwen in [#1881](https://github.com/farion1231/cc-switch/issues/1881), reporting `System message must be at the beginning`) will 400 again whenever a mid-conversation system message appears — the merge was introduced for them in the first place, and prefix stability and strict-backend validation cannot both be had in one global behavior. If your upstream is one of the latter, please report it in an issue.
+
+---
+
+### Risk Notice
+
+#### Carried-Over Notices
+
+**xAI Grok OAuth sign-in**: reuses the public OAuth client identity of the official Grok CLI; using it could lead to account restriction or suspension — see the [v3.18.0 release notes](/en/changelog/3.18.0#risk-notice) for details.
+
+**Codex OAuth reverse proxy**: using a ChatGPT subscription's Codex OAuth through a reverse proxy may violate OpenAI's terms of service. See the [v3.13.0 release notes](/en/changelog/3.13.0#risk-notice) for details.
+
+**SuperGrok quota queries**: the quota display on provider cards depends on a non-public billing endpoint at grok.com and may stop working once xAI changes the interface — see the [v3.19.0 release notes](/en/changelog/3.19.0#risk-notice) for details.
+
+**Third-party provider routing**: when the CC Switch local proxy converts and forwards Codex, Claude Desktop, or Grok Build requests to a third-party provider, each provider has different constraints on billing, compliance, and data retention. Please read the target provider's terms of service before use.
+
+By enabling these features, users accept the associated risks. CC Switch is not responsible for any account restriction, warning, or service suspension resulting from their use.
+
+---
+
+### Thanks
+
+36 of this release's 52 commits come from 26 outside contributors.
+
+#### Code Contributions
+
+- Thanks to @loocor: the entire Grok-through-xAI-native-Responses line ([#6917](https://github.com/farion1231/cc-switch/pull/6917)) — tool-schema collapsing and integer-float rewriting, `agent_message` mailbox rewriting, unknown-model mapping for sub-agents, gate consolidation and CI cleanup, across six commits.
+- Thanks to @szupzj18: three Codex catalog fixes — DeepSeek MCP visibility ([#6653](https://github.com/farion1231/cc-switch/pull/6653)), the `supports_parallel_tool_calls` backfill ([#6666](https://github.com/farion1231/cc-switch/pull/6666)) and input modalities for unknown models ([#6750](https://github.com/farion1231/cc-switch/pull/6750)); they also tried a fix for Moonshot's `$ref` siblings earlier in [#6627](https://github.com/farion1231/cc-switch/pull/6627).
+- Thanks to @yovinchen: the GPT-6 Astra, GLM-5.3 Flash and Gemini 3.8 Flash pricing rows ([#7162](https://github.com/farion1231/cc-switch/pull/7162), [#7163](https://github.com/farion1231/cc-switch/pull/7163), [#7164](https://github.com/farion1231/cc-switch/pull/7164)).
+- Thanks to @thisTom: the Codex image-generation endpoint passthrough ([#7036](https://github.com/farion1231/cc-switch/pull/7036)) and the compact axis labels on the usage trend chart ([#7016](https://github.com/farion1231/cc-switch/pull/7016)); @Komikawayi proposed a fix for the same passthrough earlier in [#5484](https://github.com/farion1231/cc-switch/pull/5484).
+- Thanks to @zmq1121: the Tencent Cloud Token Plan presets, six products × six apps ([#7011](https://github.com/farion1231/cc-switch/pull/7011)), with every endpoint and thinking switch tested against a real key.
+- Thanks to @2691176649-cloud: the eight Tencent TokenHub / Token Plan presets for Pi and their thinking-control declarations ([#7159](https://github.com/farion1231/cc-switch/pull/7159)).
+- Thanks to @SaladDay: refusing duplicate managed accounts ([#7061](https://github.com/farion1231/cc-switch/pull/7061)), split out of their own report [#7055](https://github.com/farion1231/cc-switch/issues/7055).
+- Thanks to @RemindZ: aligning the Codex OAuth client identity with GPT-6 ([#7132](https://github.com/farion1231/cc-switch/pull/7132)), a first contribution.
+- Thanks to @liqimore and @li-keli: parallel tool calls over Codex OAuth ([#7024](https://github.com/farion1231/cc-switch/pull/7024), picking up [#5722](https://github.com/farion1231/cc-switch/pull/5722); @li-keli also reported [#5719](https://github.com/farion1231/cc-switch/issues/5719)).
+- Thanks to @czhmartinez: the `$ref`-with-siblings rewrite for Moonshot/Kimi ([#6863](https://github.com/farion1231/cc-switch/pull/6863)); @jacker-son ([#5125](https://github.com/farion1231/cc-switch/pull/5125)) and loulanyue (#6869) each proposed fixes for the same problem.
+- Thanks to loulanyue: moving the Zhipu GLM presets to the official Responses endpoint (#6957).
+- Thanks to @htyvista: keeping mid-conversation system messages in place, the prefix-cache fix ([#6941](https://github.com/farion1231/cc-switch/pull/6941), fixes [#6789](https://github.com/farion1231/cc-switch/issues/6789)).
+- Thanks to @3351163616: the fix for Codex usage stalling after a resume ([#6905](https://github.com/farion1231/cc-switch/pull/6905)), self-reported and self-fixed in [#6904](https://github.com/farion1231/cc-switch/issues/6904).
+- Thanks to @Eureka0w0v0: Fable 5.1 / Mythos 5.1 pricing and Sonnet 5 back to the standard price ([#7051](https://github.com/farion1231/cc-switch/pull/7051)), self-reported and self-fixed in [#7050](https://github.com/farion1231/cc-switch/issues/7050), a first contribution.
+- Thanks to @nightcityblade: upgrading the takeover aliases to Opus 5 / Sonnet 5 ([#5882](https://github.com/farion1231/cc-switch/pull/5882)).
+- Thanks to @hu-miao: extending PPIO to Pi and the model-list URL on the Claude preset ([#6870](https://github.com/farion1231/cc-switch/pull/6870)), self-reported and self-fixed in [#6868](https://github.com/farion1231/cc-switch/issues/6868).
+- Thanks to @arichyx: GLM-5.3 pricing ([#6591](https://github.com/farion1231/cc-switch/pull/6591)).
+- Thanks to @teddyli18000: the glm-5.3 text-only marking ([#6851](https://github.com/farion1231/cc-switch/pull/6851)), a first contribution.
+- Thanks to @jintonglu6688: the accessible-name fixes ([#7049](https://github.com/farion1231/cc-switch/pull/7049)), self-reported and self-fixed in [#7048](https://github.com/farion1231/cc-switch/issues/7048), a first contribution.
+- Thanks to @SailingLoong: update checks showing the real failure reason ([#6482](https://github.com/farion1231/cc-switch/pull/6482)), a first contribution; they were also first to propose a fix for the Hermes version source in [#6621](https://github.com/farion1231/cc-switch/pull/6621).
+- Thanks to @nasymonk: the ghost "journal" sessions ([#6043](https://github.com/farion1231/cc-switch/pull/6043)), self-reported and self-fixed in [#6042](https://github.com/farion1231/cc-switch/issues/6042).
+- Thanks to @xu-kai-quan: the multi-byte panic in proxy-address masking ([#6908](https://github.com/farion1231/cc-switch/pull/6908)).
+- Thanks to @ntdatt812: the two missing Pi translation keys ([#6768](https://github.com/farion1231/cc-switch/pull/6768)).
+- Thanks to @Chang-Yo: the pricing-source dropdown width ([#6980](https://github.com/farion1231/cc-switch/pull/6980)).
+- Thanks to @wanwan-doudou: isolating `LOCALAPPDATA` in tests ([#6078](https://github.com/farion1231/cc-switch/pull/6078)), self-reported and self-fixed in [#6077](https://github.com/farion1231/cc-switch/issues/6077).
+- Thanks to @why19970628: correcting the locale paths in the README directory tree ([#6100](https://github.com/farion1231/cc-switch/pull/6100)).
+
+#### Issue Reports
+
+- Thanks to @elizax for pinpointing the merged mid-conversation system message with measured data (hit rate 99% → 20%) in [#6789](https://github.com/farion1231/cc-switch/issues/6789) — the starting point of this release's prefix-cache fix.
+- Thanks to @jonneyz: two field-precise reports, xAI rejecting root-level `oneOf`/`anyOf` tool schemas ([#6815](https://github.com/farion1231/cc-switch/issues/6815)) and the Moonshot `$ref`-with-siblings 400 ([#6867](https://github.com/farion1231/cc-switch/issues/6867)).
+- Thanks to the other reporters of the Moonshot tool-schema 400 family: @Cinnamanthus ([#6614](https://github.com/farion1231/cc-switch/issues/6614), with a verified fix), @IchenDEV ([#6834](https://github.com/farion1231/cc-switch/issues/6834)), @ghostman-git ([#6861](https://github.com/farion1231/cc-switch/issues/6861)), @dolami0 ([#6976](https://github.com/farion1231/cc-switch/issues/6976)), @RN0817 ([#7000](https://github.com/farion1231/cc-switch/issues/7000)) and @Lw2xy ([#7028](https://github.com/farion1231/cc-switch/issues/7028)).
+- Thanks to @loveyang2012 for reporting `unknown variant custom` on Zhipu's Codex direct connection ([#6944](https://github.com/farion1231/cc-switch/issues/6944)).
+- Thanks to @vdiskg for reporting MCP tools unavailable under the DeepSeek presets ([#6647](https://github.com/farion1231/cc-switch/issues/6647)), and to @wqzhellohhwy for the source-level root cause and verified fix in the comments.
+- Thanks to @OhtoAi583 and @dydydd for reporting the catalog missing `supports_parallel_tool_calls` ([#6661](https://github.com/farion1231/cc-switch/issues/6661), [#6709](https://github.com/farion1231/cc-switch/issues/6709)); @dydydd also submitted the same fix in [#6710](https://github.com/farion1231/cc-switch/pull/6710), and @zmzwynzj added a Windows reproduction in #6661 showing the problem was not limited to Kimi or macOS.
+- Thanks to @deadman49 for reporting DeepSeek vision models unable to read images ([#6725](https://github.com/farion1231/cc-switch/issues/6725)).
+- Thanks to @zhou0722jack for reporting GPT-6 not working ([#7129](https://github.com/farion1231/cc-switch/issues/7129)), and to @AiIsBetter for posting the raw 400 and verifying the fix in the same issue.
+- Thanks to @Hewitt-Qiao and @JerryChen001 for reporting image generation 404ing under local routing ([#5429](https://github.com/farion1231/cc-switch/issues/5429), [#6745](https://github.com/farion1231/cc-switch/issues/6745)).
+- Thanks to @SHIZHENGYE for reporting Opus 5 unselectable under takeover ([#5876](https://github.com/farion1231/cc-switch/issues/5876)).
+- Thanks to @matthewdm0816 and @lagolas for co-reporting usage stalling after a resume in [#6904](https://github.com/farion1231/cc-switch/issues/6904) — the former's "resume after switching to 1M context" is another face of the same root cause.
+- Thanks to @FlyinheartLee, @t5yhuangxing and @Tsuki-hash for reporting Hermes' latest version stuck at 0.19.0 ([#6475](https://github.com/farion1231/cc-switch/issues/6475), [#6618](https://github.com/farion1231/cc-switch/issues/6618), [#7033](https://github.com/farion1231/cc-switch/issues/7033)).
+- Thanks to @QianWen-AI-Platform for requesting the QwenCloud presets ([#6214](https://github.com/farion1231/cc-switch/issues/6214)).
+
+---
+
+### Download & Install
+
+Visit [Releases](https://github.com/farion1231/cc-switch/releases/latest) and download the build for your system, or get it from the official site [ccswitch.io](https://ccswitch.io) (downloads are distributed through Cloudflare edge nodes and do not depend on GitHub being reachable).
+
+#### System Requirements
+
+| System  | Minimum Version      | Architecture                        |
+| ------- | -------------------- | ----------------------------------- |
+| Windows | Windows 10 and later | x64 / ARM64                         |
+| macOS   | macOS 12 (Monterey)+ | Intel (x64) / Apple Silicon (arm64) |
+| Linux   | See table below      | x64 / ARM64                         |
+
+#### Windows
+
+| File                                     | Description                                      |
+| ---------------------------------------- | ------------------------------------------------ |
+| `CC-Switch-v3.20.2-Windows.msi`          | **Recommended** - MSI installer with auto-update |
+| `CC-Switch-v3.20.2-Windows-Portable.zip` | Portable build, unzip and run                    |
+
+Windows ARM64 devices should pick the artifact whose file name carries the `arm64` tag.
+
+#### macOS
+
+| File                             | Description                                           |
+| -------------------------------- | ----------------------------------------------------- |
+| `CC-Switch-v3.20.2-macOS.dmg`    | **Recommended** - DMG installer, drag to Applications |
+| `CC-Switch-v3.20.2-macOS.zip`    | Unzip and drag to Applications, Universal Binary      |
+| `CC-Switch-v3.20.2-macOS.tar.gz` | For Homebrew install and auto-update                  |
+
+Homebrew install:
+
+```bash
+brew install --cask cc-switch
+```
+
+Upgrade:
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux assets are available for both **x86_64** and **ARM64** (`aarch64`). Choose the file whose architecture tag matches your machine's `uname -m` output:
+
+- `CC-Switch-v3.20.2-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.2-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| Distribution                            | Recommended Format | Install Command                                                        |
+| --------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`             | `sudo dpkg -i CC-Switch-*.deb` or `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`             | `sudo rpm -i CC-Switch-*.rpm` or `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`             | `sudo zypper install ./CC-Switch-*.rpm`                                |
+| Arch Linux / Manjaro                    | `.AppImage`        | Make executable and run directly, or use AUR                           |
+| Other distributions / unsure            | `.AppImage`        | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`              |
+
+## [3.20.1] - 2026-08-28
+
+> This release settles two hard debts on the Codex side: **compatibility with Codex CLI 0.149** — the definitive fix for third-party switches failing with 401 "Missing API key": switching is now config-only, the key travels in the provider's own table and never enters `auth.json`, and a family of legacy config shapes that made 0.149 refuse to start is repaired automatically on every switch; and **ChatGPT accounts in the same Team workspace no longer overwrite each other** — existing managed accounts need one re-login each (see Upgrade Notes). Three data-reliability fixes land alongside: provider edits always reach the live config, the Codex edit dialog no longer shows another card's key, and restores no longer wipe hand-written prompt files. On the usage side there is a new "Auto-Scan Session Logs" switch, and scanning large session files drops from seconds to milliseconds. This release **includes a database migration (v17 → v18)** — a backup is created automatically before migrating, and downgrading requires restoring it.
+
+### Highlights: What You Can Do Now
+
+- **Switch third-party providers normally on Codex CLI ≥ 0.149** ([#6744](https://github.com/farion1231/cc-switch/issues/6744)): since 0.149, custom providers no longer inherit ambient credentials from `auth.json`, so third-party switches made the old default way (key written only to `auth.json`) all failed with 401. Switching is now config-only across the board — the key goes into the provider's own `[model_providers.*]` table (`experimental_bearer_token`, honored since Codex 0.48), and `auth.json` returns to being purely the official ChatGPT login file.
+- **Let multiple ChatGPT accounts from one Team workspace coexist safely** ([#6780](https://github.com/farion1231/cc-switch/pull/6780), fixes [#2245](https://github.com/farion1231/cc-switch/issues/2245)): accounts used to be keyed by the workspace ID, so two members of one Team collapsed onto a single record, with the later login silently overwriting the earlier one's tokens. Same-workspace logins now coexist as separate account rows, and requests routed through takeover are validated against the bound account — a bill can never land on another member.
+- **Trust "saved successfully"** ([#6779](https://github.com/farion1231/cc-switch/pull/6779)): a takeover backup row left behind by a crash could make edits of the active provider update only the database while the real config file stayed untouched. Ownership is now decided by a rebuilt predicate; edits always reach the live config.
+- **See the card's own key in the edit dialog** ([#6534](https://github.com/farion1231/cc-switch/pull/6534), fixes [#6414](https://github.com/farion1231/cc-switch/issues/6414)): the shared `auth.json` has no provider identity, so editing the active Codex provider could display — and on save persist — a key left behind by a different card, making keys converge across cards sharing a base URL ("model not found"). The form now rebuilds the key from the card's own bearer token in `config.toml`.
+- **Restore backups with confidence** ([#6810](https://github.com/farion1231/cc-switch/pull/6810), fixes [#6778](https://github.com/farion1231/cc-switch/issues/6778)): when a cloud snapshot has no enabled prompt for an app, a WebDAV/S3 download or backup import no longer truncates your hand-written `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `SOUL.md` to empty.
+- **Turn off background session scanning**: the usage page gains an "Auto-Scan Session Logs" switch; off means manual mode — local session logs are scanned only when you click "Sync Now". Proxy-takeover request accounting records in real time, never reads session files, and keeps working either way.
+- **See your OpenCode Go subscription quota**: the usage-script Token Plan query now recognizes OpenCode Go, with 5-hour / weekly / monthly usage percentages and reset times in the usage card and tray.
+- **Set Otty as your terminal on macOS** ([#6620](https://github.com/farion1231/cc-switch/pull/6620)): available for session resume, provider terminals and tool commands.
+- **Scan large session files in milliseconds instead of seconds**: Claude session logs move to incremental byte-cursor scanning — a 12 MB active session file drops from a 6.04 s full parse to a 9.3 ms incremental read.
+
+---
+
+### Usage Guides
+
+- **[Adding Providers](/en/docs?section=providers&item=add)**: provider management after the Codex config-only switch.
+- **[Usage Statistics](/en/docs?section=proxy&item=usage)**: how the session-scan switch and the Token Plan quota query are counted.
+
+---
+
+> [!WARNING]
+>
+> ## Only Official Channels (Please Read)
+>
+> CC Switch is a **fully free and open-source** desktop app, and we **do not charge users any fees**. Please only obtain the software through the official channels listed below:
+>
+> | Channel            | Only Official                                                                  |
+> | ------------------ | ------------------------------------------------------------------------------ |
+> | Website            | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | Source             | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | Downloads          | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | Author             | **[@farion1231](https://github.com/farion1231)**                               |
+> | Report an Imposter | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **Any "CC Switch" website or client that asks you for payment, top-ups, or login credentials is fake.** If you have been tricked into paying, stop the transaction immediately and file a report through GitHub Issues.
+
+---
+
+### Overview
+
+This release's main line runs through Codex, starting from an upstream compatibility break: Codex CLI 0.149 tightened credential inheritance — custom providers no longer read ambient credentials from `auth.json`, so every third-party switch written the old default way failed with 401. CC Switch's answer is not a patch but a redesign: third-party switching is now config-only — the key travels in the provider's own config table, and `auth.json` returns to being purely the official ChatGPT login file. Alongside it, a family of legacy config shapes 0.149 refuses to load (stale tables squatting on reserved ids, tables missing `name`, legacy top-level `openai_base_url` reroutes) is repaired automatically on every switch and takeover projection, and a new preflight refuses combinations 0.149 cannot load by name — instead of reporting a "successful" switch Codex cannot start from.
+
+The second line is account and data safety: members of one ChatGPT Team workspace no longer overwrite each other in the Auth Center (existing managed accounts need one re-login); provider edits are guaranteed to reach the live config; the Codex edit dialog no longer bleeds another card's key; restores no longer wipe hand-written prompt files. On the usage side, session scanning gains an auto/manual switch and an incremental byte-cursor scanner (6.04 s → 9.3 ms), with three Claude session-accounting correctness fixes along the way — the origin of this release's only database migration (v17 → v18).
+
+**Release date**: 2026-08-28
+
+**Change size**: 26 commits | 66 files changed | +7,474 / -1,000 lines
+
+---
+
+### Added
+
+#### Session-Log Scanning: Auto/Manual Mode
+
+The usage page gains an "Auto-Scan Session Logs" card with a switch (on by default, so behavior is unchanged after upgrading). Turning it off stops all background session scanning — including the startup pass — and a "Sync Now" button appears as the manual entry point, reporting imported entries, files scanned and an error count when done. Proxy-takeover request accounting records in real time and never reads session files, so it keeps recording regardless of the switch; the startup cost backfill (which only patches existing database rows) still runs in manual mode.
+
+#### OpenCode Go Subscription Usage
+
+The usage-script Token Plan query now recognizes OpenCode Go, showing 5-hour / weekly / monthly usage percentages with reset times in the usage card and tray, reusing the existing quota-tier display. The endpoint is Bearer-auth only (the exact opposite of the inference side, which only accepts `x-api-key`); a valid key without a Go subscription reports a distinct message (HTTP 403) instead of a generic auth failure, a zero-usage window drops the upstream's placeholder reset time, and an unrecognized response shape reports an error instead of an empty card. Newly added OpenCode Go providers in Claude Code, Claude Desktop, Codex, OpenCode and Pi enable the query automatically; OpenCode Zen pay-as-you-go is deliberately not covered — that plan has no usage API upstream.
+
+#### Otty Terminal Support (macOS)
+
+"Otty" joins the macOS terminal picker, covering session resume, provider terminals and tool commands. Launching first attempts a new tab in the existing Otty window via the Otty CLI, then a new Otty window; provider terminals and tool commands additionally fall back to Terminal.app on failure, while a failed session resume reports the error — with an explicit install hint when the Otty CLI is missing — and copies the command to the clipboard. CLI discovery probes the app bundle (system and per-user), Homebrew paths and PATH. The user manual's macOS terminal tables were corrected along the way — Kaku and Warp were already supported but missing from the lists. ([#6620](https://github.com/farion1231/cc-switch/pull/6620))
+
+---
+
+### Changed
+
+#### Codex Third-Party Switching Is Config-Only
+
+Switching to a third-party Codex provider now writes the API key into the provider's own `[model_providers.*]` table (the `experimental_bearer_token` field, honored since Codex 0.48) and **never writes it into `auth.json`** — which returns to being purely the official ChatGPT login file. The background: Codex 0.149 stopped letting custom providers inherit ambient credentials from `auth.json`, so third-party switches made the old default way (key written only to `auth.json`) started failing with 401.
+
+The "Keep official login for direct switches" toggle now has exactly one meaning: ON leaves the official ChatGPT login completely untouched across third-party switches; OFF **deletes** `auth.json` instead of overwriting it with the API key (a failed deletion surfaces a warning that the official login is still on disk in the Codex config directory). Two safety gates now run on **every third-party switch**, not just in preservation mode: a key with no provider table to hold it, and a keyless config that would fall back to the official login (`requires_openai_auth = true` without its own credentials, or a bare top-level `openai_base_url` reroute), are both refused by name — including third-party cards with an empty config, which previously rode silently in `auth.json`. `requires_openai_auth` on the active keyed third-party table is re-stamped on each direct switch to match the preservation toggle, so Codex's login screen agrees with what is actually on disk. ([#6744](https://github.com/farion1231/cc-switch/issues/6744), [#6746](https://github.com/farion1231/cc-switch/pull/6746))
+
+#### TeamoRouter Presets Move to teamorouter.cn
+
+All eight app presets now point at `api.teamorouter.cn`, with the old `.com` endpoint registered as a selectable, speed-testable fallback candidate for Claude Code, Claude Desktop, Codex and Grok Build. Existing saved TeamoRouter providers keep whatever base URL they were saved with.
+
+---
+
+### Fixed
+
+#### Same-Workspace ChatGPT Accounts No Longer Merge in the Auth Center
+
+Managed Codex OAuth accounts were keyed by `chatgpt_account_id` — which identifies a ChatGPT workspace, not a person: two members of one Team workspace collapsed onto a single record, the later login silently overwrote the earlier one's tokens, and provider bindings followed whoever logged in last. Accounts are now keyed locally, with the OIDC subject kept as proof of user identity, so same-workspace logins coexist as separate rows. Requests routed through takeover are additionally validated against the bound account's live token: a Codex session still holding another member's login gets an explicit "restart Codex" error instead of being forwarded under the wrong identity, and the outgoing workspace header always comes from the account binding rather than the client's own claim. Adopting a CLI-rotated refresh token, and deleting `auth.json` on account removal, both require provable ownership now — CC Switch can no longer adopt or delete another workspace member's login. Every account row offers in-place "Re-login" (bindings preserved); cancelling or superseding a device login drops the pending flow inside CC Switch — an abandoned browser authorization can no longer be committed minutes later to silently overwrite an account. An id_token that is not a well-formed JWT yields no identity at all — a malformed or truncated token can never stand in for a user. ([#6780](https://github.com/farion1231/cc-switch/pull/6780), [#6831](https://github.com/farion1231/cc-switch/pull/6831), fixes [#2245](https://github.com/farion1231/cc-switch/issues/2245))
+
+#### Codex 0.149 Compatibility Repairs: Existing Configs No Longer Keep Codex From Starting
+
+A family of config shapes that made Codex 0.149 refuse to load — seen by users as "CC Switch says switched, Codex won't start" — is now repaired automatically on every provider switch and takeover projection. Specifically: leftover `[model_providers.openai]` / `.ollama` / `.lmstudio` tables (written by older takeover projections; overriding a reserved id fails validation) are renamed losslessly to a CC-Switch-owned id and normalized into a loadable shape; provider tables missing `name` are backfilled (0.149 rejects the whole config over any nameless table — Bedrock tables are deliberately left nameless, since naming them breaks their built-in merge); legacy top-level `openai_base_url` reroutes carrying a usable key are migrated into a proper custom provider table (a keyless reroute is refused by the switch-time safety gate instead); and a new preflight rejects field combinations 0.149 cannot load, naming the offending table, instead of writing them out as a "successful" switch. Takeover of a card routed at the built-in `openai` provider now uses the officially supported top-level knob instead of creating a reserved table, and takeover of `ollama`/`lmstudio`-routed cards fails with an explicit error. The reserved-id list now matches upstream exactly (case-sensitive; `amazon-bedrock-runtime` added, legacy `oss`/`ollama-chat` treated as ordinary custom providers — their keys finally reach their own tables), and inline `model_providers` tables receive the injected token instead of being left with a dead top-level field.
+
+#### A Refused Switch No Longer Corrupts the Refused Card
+
+Live-write validation now runs as a preflight, before the current-provider pointer moves. Previously a write-layer refusal landed after `current` had already been committed — the next switch would backfill the old live config into the refused provider's saved settings.
+
+#### Provider Edits Always Reach the Live Config File
+
+A takeover backup row left behind by a crash or failed restore made saves of the active provider (Claude Desktop excepted) take the takeover path — updating only the database and the backup row while the real config file silently kept the old endpoint and key, indefinitely. Ownership is now decided by a single predicate requiring actual evidence of takeover (a placeholder in the live file, or the proxy enabled and running with a backup row, or an in-flight switch holding the per-app lock alongside a backup row); stale backup rows are refreshed to match the edited provider instead of hijacking the write. Universal provider saves now also re-project each generated child into the live config of any app where it is the active provider, and report per-app failures by name instead of claiming success. ([#6779](https://github.com/farion1231/cc-switch/pull/6779))
+
+#### Codex Edit Dialog No Longer Shows Another Provider's Key
+
+With official-login preservation enabled, `auth.json` is a shared slot with no provider identity, and the edit dialog used to prefer it when seeding the form — so editing the active Codex provider could display, and on save persist, a key left behind by a different card, making keys converge across cards sharing a base URL ("model not found" errors). The dialog now rebuilds the key from the provider's own bearer token in `config.toml`; official-category and OAuth-only providers are untouched, and a card whose `config.toml` carries no bearer token of its own — an older or hand-maintained shape, now that every third-party switch writes one — keeps the previous behavior of reading the live `auth.json`, manual edits included. ([#6534](https://github.com/farion1231/cc-switch/pull/6534), fixes [#6414](https://github.com/farion1231/cc-switch/issues/6414))
+
+#### Restores No Longer Wipe Unmanaged Prompt Files
+
+A WebDAV/S3 download or backup import whose snapshot had no enabled prompt for an app truncated that app's live prompt file (`CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `SOUL.md`) to empty — destroying hand-written local content that was never part of the sync payload. Such a restore now leaves the file entirely untouched; disabling the last prompt from the Prompts panel still clears it as before. ([#6810](https://github.com/farion1231/cc-switch/pull/6810), fixes [#6778](https://github.com/farion1231/cc-switch/issues/6778))
+
+#### Recovery-Screen Exit Buttons Actually Quit the App
+
+The `process:allow-exit` capability was missing, so on v3.20.0 the Quit button on the "database version too new" recovery screen, and the exit call after a config-load failure, were both silently rejected by the IPC layer: the Quit button did nothing (closing the window still quit the app), and after a config-load failure the app carried on into the normal UI instead of exiting as intended. This was independently discovered and fixed first by @SaladDay in [#6567](https://github.com/farion1231/cc-switch/pull/6567).
+
+#### Three Claude Session-Accounting Correctness Fixes
+
+Three data-accuracy fixes land with the incremental scanner, all on the Claude session-log path. A log line caught mid-write used to be permanently skipped by the old line-number cursor (the unfinished tail advanced the cursor, so the completed message was never imported) — the byte cursor only commits past complete lines, so the message is picked up next round. An externally truncated or rewritten session file is **never replayed**: re-importing entries whose detail rows the 30-day rollup has already pruned would permanently inflate totals, so the cursor is pinned at the new end of file and the skipped range is reported in the sync result's error list instead of silently dropped (truncation is caught by the cursor overrunning the file; same-size rewrites by a fingerprint of the bytes before the cursor). Mid-file read errors now keep committed progress, resume from the same spot next round and are reported, instead of returning a clean success; a failed cursor prefetch aborts the round instead of behaving like a first-ever scan and double-importing history.
+
+---
+
+### Performance
+
+#### Claude Session Logs: Incremental Byte-Cursor Scanning
+
+Each scan round now seeks straight to the last committed byte offset and reads only what was appended, instead of re-reading a changed file end to end — per the change's own benchmark, a 12 MB active session file drops from a 6.04 s full parse to a 9.3 ms incremental read. Per-file cursors for Claude, Gemini, OpenCode, Grok Build and Pi are prefetched with one table read per importer per round instead of one lookup per file; on the Claude path, each file's imports and its cursor advance commit in a single transaction. A frozen-snapshot replay over 1,017 session files (409 MB) produced aggregates identical to the old scanner. Requires a schema migration (v17 → v18) adding two nullable columns — the byte cursor and a tail fingerprint; existing line-number cursors are converted in place on the first scan without re-importing anything.
+
+#### Pi Session Dedup Uses the Identity Indexes
+
+The combined dedup query (an OR across two identity columns) could only constrain the data-source prefix, scanning the entire Pi portion of the ledger for every parsed record — Pi imports got slower as usage history grew. It is now split into indexed point lookups with identical results, so import time no longer degrades with history size. ([#6667](https://github.com/farion1231/cc-switch/pull/6667))
+
+---
+
+### Upgrade Notes
+
+#### This Release Includes a Database Migration; Downgrading Requires Restoring the Backup
+
+The schema migrates from v17 to v18 (a byte-cursor and a tail-fingerprint column on the session-scan cursor table), with a backup created automatically before migrating. Once this release has run, older CC Switch builds refuse to open the database — downgrading requires restoring that backup. Usage entries the old half-line bug had already skipped are not retroactively recovered — replaying them cannot be distinguished from re-importing already-rolled-up history.
+
+#### Existing Codex OAuth Accounts Need One Re-Login
+
+Every managed ChatGPT (Codex OAuth) account added before this release is quarantined until you click "Re-login" on its row in the Auth Center — older records used the ChatGPT workspace ID as the account key and carry no separately recorded per-user identity, so an ordinary token refresh cannot prove which user an old record belongs to. Provider bindings are preserved; re-login updates the account in place. Be sure to use the row's "Re-login" button: signing in again through "Add account" only creates a second row (logins no longer merge by workspace) and leaves the old row — and any provider bound to it — still quarantined. ([#6780](https://github.com/farion1231/cc-switch/pull/6780))
+
+#### Codex Releases Older Than 0.48 Lose Third-Party Authentication
+
+The provider-table token field that config-only switching writes is never read by pre-0.48 Codex. Upgrade Codex if you are still on an older build.
+
+#### With the Preservation Toggle Off, Switching to a Third Party Deletes auth.json
+
+With the "Keep official login for direct switches" toggle **OFF (the default)**, switching to a third-party Codex provider now **deletes** `auth.json` rather than overwriting it with the API key. To get the ChatGPT login back: switch to an official provider bound to an Auth Center account (the login is written back in full from the stored account); an unbound official card that follows the Codex CLI's own login needs a `codex login` run. Turn the toggle ON to keep the official login across third-party switches.
+
+#### Some Previously "Working" Codex Cards Are Now Refused at Switch Time
+
+Third-party cards with an empty config (no table to hold the key), and keyless cards relying on `requires_openai_auth = true` or a bare `openai_base_url` reroute to borrow the official login, are now refused by name. Add a proper `[model_providers.<id>]` entry or an API key to such cards.
+
+#### Existing Codex Configs Are Rewritten on the Next Live Write Where 0.149 Requires It
+
+Legacy `openai_base_url` reroutes with a usable key become a `[model_providers.cc-switch]` table, stale reserved tables are renamed to a CC-Switch id, missing `name` fields are filled in, and `requires_openai_auth` on the active keyed third-party table is overridden on each switch to match the preservation toggle — a hand-set value on that table does not survive a switch.
+
+#### Truncated or Externally Rewritten Claude Session Logs Are Skipped, Permanently and by Design
+
+The rewritten range is not replayed (replaying would double-count against already-pruned rollups), and the skip is reported in the sync result's error list.
+
+#### Keys Already Cross-Contaminated Before the #6534 Fix Are Not Repaired Automatically
+
+If Codex providers sharing a base URL have already converged on one key, re-enter the correct key on each affected card once.
+
+#### Restore Behavior Change (#6810)
+
+Restoring a snapshot in which an app has no enabled prompt now preserves that app's live prompt file — the client keeps loading its old content even though the Prompts panel shows everything disabled. Enable and then disable a prompt from the panel (or edit the file yourself) if you want it cleared.
+
+#### Universal Provider Saves Can Now Fail Loudly
+
+If a live config file cannot be written for an app whose active provider is the generated child, the save reports an error naming that app; the database record is still saved — retry the sync or switch that app's provider once.
+
+#### Existing TeamoRouter Providers Keep `api.teamorouter.com`
+
+Re-add from the preset, or edit the base URL, to move to `.cn`.
+
+#### OpenCode Go Usage Auto-Enables Only for Providers Added After This Release
+
+For an existing card, open its usage-script settings and pick the Token Plan template → OpenCode Go once.
+
+---
+
+### Risk Notice
+
+#### Carried-Over Notices
+
+**xAI Grok OAuth sign-in**: reuses the public OAuth client identity of the official Grok CLI; using it could lead to account restriction or suspension — see the [v3.18.0 release notes](/en/changelog/3.18.0#risk-notice) for details.
+
+**Codex OAuth reverse proxy**: using a ChatGPT subscription's Codex OAuth through a reverse proxy may violate OpenAI's terms of service. See the [v3.13.0 release notes](/en/changelog/3.13.0#risk-notice) for details.
+
+**SuperGrok quota queries**: the quota display on provider cards depends on a non-public billing endpoint at grok.com and may stop working once xAI changes the interface — see the [v3.19.0 release notes](/en/changelog/3.19.0#risk-notice) for details.
+
+**Third-party provider routing**: when the CC Switch local proxy converts and forwards Codex, Claude Desktop, or Grok Build requests to a third-party provider, each provider has different constraints on billing, compliance, and data retention. Please read the target provider's terms of service before use.
+
+By enabling these features, users accept the associated risks. CC Switch is not responsible for any account restriction, warning, or service suspension resulting from their use.
+
+---
+
+### Thanks
+
+Eight of this release's 26 commits come from 5 outside contributors.
+
+#### Code Contributions
+
+- Thanks to @SaladDay: the entire workspace account-isolation line ([#6780](https://github.com/farion1231/cc-switch/pull/6780)), the JWT identity-parsing alignment ([#6831](https://github.com/farion1231/cc-switch/pull/6831)) and the Pi session-dedup indexes ([#6667](https://github.com/farion1231/cc-switch/pull/6667)); the missing exit-button capability was also independently discovered and fixed first by them in [#6567](https://github.com/farion1231/cc-switch/pull/6567).
+- Thanks to @YUZHEthefool: provider edits always reaching the live config ([#6779](https://github.com/farion1231/cc-switch/pull/6779), in collaboration with @BingZi-233) and the Codex edit-dialog key cross-contamination fix ([#6534](https://github.com/farion1231/cc-switch/pull/6534)) — the two hard data-correctness entries in "Fixed" are this work.
+- Thanks to @SailingLoong: restores keeping unmanaged prompt files intact ([#6810](https://github.com/farion1231/cc-switch/pull/6810)).
+- Thanks to @yovinchen: Otty terminal support ([#6620](https://github.com/farion1231/cc-switch/pull/6620)).
+- Thanks to @ISuuuu: the WSL2 contract tests running from prebuilt binaries ([#6472](https://github.com/farion1231/cc-switch/pull/6472)).
+
+#### Issue Reports
+
+- Thanks to @hlwhl for the precise report on Codex 0.149's credential-inheritance change in [#6744](https://github.com/farion1231/cc-switch/issues/6744) — it framed this release's biggest line directly, and they were also first to propose a fix ([#6746](https://github.com/farion1231/cc-switch/pull/6746)).
+- Thanks to the reporters of the Team-workspace account-overwrite problem: @cp7553479 ([#2245](https://github.com/farion1231/cc-switch/issues/2245)), @Smilenize ([#5885](https://github.com/farion1231/cc-switch/issues/5885)), @yingjiezhao0820 ([#6688](https://github.com/farion1231/cc-switch/issues/6688)) and @buqi759 ([#6738](https://github.com/farion1231/cc-switch/issues/6738)).
+- Thanks to the key cross-contamination family: @Joaging ([#6414](https://github.com/farion1231/cc-switch/issues/6414)), @KawaiiSh1zuku ([#6594](https://github.com/farion1231/cc-switch/issues/6594)) and @Michael-py001 ([#6827](https://github.com/farion1231/cc-switch/issues/6827)).
+- Thanks to @gyzerocc for reporting the WebDAV restore wiping AGENTS.md ([#6778](https://github.com/farion1231/cc-switch/issues/6778)) — with the trigger condition pinpointed exactly.
+
+---
+
+### Download & Install
+
+Visit [Releases](https://github.com/farion1231/cc-switch/releases/latest) and download the build for your system, or get it from the official site [ccswitch.io](https://ccswitch.io) (downloads are distributed through Cloudflare edge nodes and do not depend on GitHub being reachable).
+
+#### System Requirements
+
+| System  | Minimum Version      | Architecture                        |
+| ------- | -------------------- | ----------------------------------- |
+| Windows | Windows 10 and later | x64 / ARM64                         |
+| macOS   | macOS 12 (Monterey)+ | Intel (x64) / Apple Silicon (arm64) |
+| Linux   | See table below      | x64 / ARM64                         |
+
+#### Windows
+
+| File                                     | Description                                      |
+| ---------------------------------------- | ------------------------------------------------ |
+| `CC-Switch-v3.20.1-Windows.msi`          | **Recommended** - MSI installer with auto-update |
+| `CC-Switch-v3.20.1-Windows-Portable.zip` | Portable build, unzip and run                    |
+
+Windows ARM64 devices should pick the artifact whose file name carries the `arm64` tag.
+
+#### macOS
+
+| File                             | Description                                           |
+| -------------------------------- | ----------------------------------------------------- |
+| `CC-Switch-v3.20.1-macOS.dmg`    | **Recommended** - DMG installer, drag to Applications |
+| `CC-Switch-v3.20.1-macOS.zip`    | Unzip and drag to Applications, Universal Binary      |
+| `CC-Switch-v3.20.1-macOS.tar.gz` | For Homebrew install and auto-update                  |
+
+Homebrew install:
+
+```bash
+brew install --cask cc-switch
+```
+
+Upgrade:
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux assets are available for both **x86_64** and **ARM64** (`aarch64`). Choose the file whose architecture tag matches your machine's `uname -m` output:
+
+- `CC-Switch-v3.20.1-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.1-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| Distribution                            | Recommended Format | Install Command                                                        |
+| --------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`             | `sudo dpkg -i CC-Switch-*.deb` or `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`             | `sudo rpm -i CC-Switch-*.rpm` or `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`             | `sudo zypper install ./CC-Switch-*.rpm`                                |
+| Arch Linux / Manjaro                    | `.AppImage`        | Make executable and run directly, or use AUR                           |
+| Other distributions / unsure            | `.AppImage`        | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`              |
+
 ## [3.20.0] - 2026-08-18
 
 > Three structural lines carry this release: **Pi becomes the ninth managed app** — providers, prompts, Skills, a session browser and usage statistics, all in one place; **Codex gains multiple ChatGPT accounts** — sign in to as many as you like in the Auth Center, bind each official card to its own account, and never cross-bill a switch; and **Claude Code's built-in WebSearch finally works under GPT routing**. There is one urgent fix too: v3.19.2 could not update or switch existing configurations on WSL paths — affected users should upgrade straight to this release. The same Windows wave brings a version-detection overhaul (five issues fixed at once), the startup flash fix, and the MSI registry-key cleanup. This release **includes a database migration (v16 → v17)** — a backup is created automatically before migrating, and downgrading requires restoring it.

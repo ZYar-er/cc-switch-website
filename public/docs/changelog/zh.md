@@ -2,6 +2,938 @@
 
 CC Switch 的重要版本更新记录。
 
+## [3.20.3] - 2026-09-11
+
+> 如今主流开源模型的官方 API 大多已原生支持 OpenAI Responses 格式。本版把 Codex 里 Kimi 的两条预设也从 Chat Completions 转换改为**原生 Responses 直连**——至此 DeepSeek、智谱 GLM、千问、MiniMax、小米 MiMo、LongCat、Kimi 这些主流开源模型的官方 Codex 预设全部直连厂商端点，连同火山豆包与腾讯混元，不再需要开本地路由做格式转换。如果你的 Codex 卡片还是早先添加的 Chat 格式，重新添加一次预设，或在编辑页把「上游格式」改成 Responses，就能直连。其余是一波由贡献者主导的正确性修复：空 `reasoning_content` 占位符不再让 Claude Code 被空 Thought 块刷屏、Codex 长任务不再在一句进度汇报后戛然而止、Claude Desktop 的模型探针不再在 Responses 上游下误报「不可用」、每次退出都把 Claude 的代理重试与超时抄给 Codex/Gemini/Grok Build 的串写关闭、统一供应商同步不再清空子卡设置；Codex 侧补上省略 `model_provider` 时的代理路由、Windows 上正在增长的会话用量、托盘里托管账号的额度。预设与定价做了一轮维护：聚合平台目录刷新、千问AI平台改名并升到 Qwen 3.8、MiniMax 默认 M3、DeepSeek V4 家族按 V4.1 Flash 档调价。**本版不含数据库迁移。**
+
+### 重点内容：你现在可以
+
+- **在 Codex 里直连 Kimi，走原生 Responses**：Kimi 开放平台与 Kimi For Coding 两条预设从 `openai_chat` 改为 `openai_responses`，Codex 直接连厂商的 `/v1/responses`，不再需要开本地路由做 Responses→Chat 转换。至此 DeepSeek、智谱 GLM、千问、MiniMax、小米 MiMo、LongCat、Kimi 这些主流开源模型的官方 Codex 预设全部直连；仍只提供 Chat Completions 的端点（百度千帆、腾讯 Token Plan、QwenCloud For Coding、StepFun、百灵、ModelScope 与各聚合平台）继续经本地路由转换。如果你现有的卡片还是早先添加的 Chat 格式（Kimi，以及前几版已切换的 DeepSeek、GLM 等），重新添加一次预设，或在编辑页把「上游格式」改成 Responses，即可直连；详见升级提醒。
+- **Claude Code 不再被空 Thought 块刷屏**（[#7227](https://github.com/farion1231/cc-switch/pull/7227)，修复 [#5028](https://github.com/farion1231/cc-switch/issues/5028)、[#4404](https://github.com/farion1231/cc-switch/issues/4404)）：GLM、Qwen、DeepSeek 一类在每个 chunk 里带空 `reasoning_content` 占位的上游，不再让每个 token 变成一行外加一个空思考块。
+- **Codex 长任务不再在一句进度汇报后戛然而止**（[#7280](https://github.com/farion1231/cc-switch/pull/7280)，修复 [#6529](https://github.com/farion1231/cc-switch/issues/6529)）：经 Chat 上游时，commentary 与紧随的工具调用合并进同一条 assistant 消息，上游不再提前 `stop`。
+- **Claude Desktop 在 Responses 上游下不再报「模型不可用」**（[#7287](https://github.com/farion1231/cc-switch/pull/7287)，修复 [#7103](https://github.com/farion1231/cc-switch/issues/7103)）：探针的 `max_tokens=1` 在转换时夹到 Responses API 允许的最小值 16。
+- **退出后 Codex、Gemini、Grok Build 的代理重试与超时设置不再被 Claude 的覆盖**（[#7210](https://github.com/farion1231/cc-switch/pull/7210)，修复 [#7204](https://github.com/farion1231/cc-switch/issues/7204)）。
+- **同步统一供应商不再清空子卡的用量脚本、通用配置退出与排序**（[#7212](https://github.com/farion1231/cc-switch/pull/7212)，修复 [#7134](https://github.com/farion1231/cc-switch/issues/7134)）。
+- **没写 `model_provider` 的 Codex 卡接管时也走本地代理**（[#7263](https://github.com/farion1231/cc-switch/pull/7263)，修复 [#6256](https://github.com/farion1231/cc-switch/issues/6256)），不再悄悄直连 `api.openai.com`。
+- **Windows 上正在增长的 Codex 会话用量不再漏采**（[#7219](https://github.com/farion1231/cc-switch/pull/7219)，修复 [#6060](https://github.com/farion1231/cc-switch/issues/6060)）：mtime 不动时也按文件大小判定。
+- **托盘显示托管 Codex 卡所绑 ChatGPT 账号的额度**（修复 [#7267](https://github.com/farion1231/cc-switch/issues/7267)）：绑定多个账号时不再只剩名字。
+- **看到 Claude Fable 的周限额**：供应商卡片与托盘都解析用量 API 新的 `limits[]` 数组。
+- **一键禁用 Claude Code 的 Artifact 工具**：DeepSeek 等严格校验工具 schema 的网关不再对每个请求返回 400。
+- **DeepSeek 官方 Codex 预设能读图**（[#7286](https://github.com/farion1231/cc-switch/pull/7286)，修复 [#7283](https://github.com/farion1231/cc-switch/issues/7283)）；`deepseek-flash` 与 V4 家族按 V4.1 Flash 档记账，不再按 $0 或旧高峰价。
+- **一键添加 千问AI平台 Token Plan**（[#7183](https://github.com/farion1231/cc-switch/pull/7183)）；千问AI平台升到 Qwen 3.8、MiniMax 默认 M3（[#7255](https://github.com/farion1231/cc-switch/pull/7255)）、聚合平台 Codex 目录刷新。
+
+---
+
+### 使用攻略
+
+- **[添加供应商](/zh/docs?section=providers&item=add)**：Codex 的原生 Responses 直连与 Chat 路由转换的区别、Claude 快捷开关表（含新增的「禁用 Artifact 工具」），以及「预设改动只影响新建供应商」的含义。
+- **[请求路由](/zh/docs?section=proxy&item=routing)**：接管模式下的配置改写与恢复——本版 Codex 缺 `model_provider` 时的路由修复落在这条路径。
+- **[用量统计](/zh/docs?section=proxy&item=usage)**：Codex 会话解析与定价配置，本版的字节游标与定价回填口径。
+
+---
+
+> [!WARNING]
+>
+> ## 唯一官方渠道声明（请务必阅读）
+>
+> CC Switch 是**完全免费、开源**的桌面应用，**不会向用户收取任何费用**。请仅通过下列官方渠道获取本软件：
+>
+> | 类别     | 唯一官方                                                                       |
+> | -------- | ------------------------------------------------------------------------------ |
+> | 官网     | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | 源码     | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | 下载     | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | 作者     | **[@farion1231](https://github.com/farion1231)**                               |
+> | 举报山寨 | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **任何向你收费、要求充值、或索取登录凭据的"CC Switch"网站或客户端均为假冒**。如果你被诱导支付了费用，请立即停止操作并通过 GitHub Issues 反馈。
+
+---
+
+### 概览
+
+主流开源模型的官方 API 如今大多已原生提供 OpenAI Responses 端点，Codex 也早已以 Responses 为唯一原生协议。此前 CC Switch 对这些模型的 Codex 预设分两种形态：厂商端点原生支持 Responses 的直连，只提供 Chat Completions 的则由本地代理把 Codex 的 Responses 请求转换成 Chat、再把流式响应转换回来。转换路径能用，但多一层翻译就多一处出错的地方——本版修的 [#7280](https://github.com/farion1231/cc-switch/pull/7280) 正是这类转换缺陷。Kimi 开放平台与 Kimi For Coding 的端点现在都原生提供 `/v1/responses`，官方 Codex 接入指南也要求 `wire_api = "responses"`，于是这两条预设改为原生 Responses 直连。至此 DeepSeek、智谱 GLM、千问（千问AI平台 / QwenCloud）、MiniMax、小米 MiMo、LongCat、Kimi 这些主流开源模型的官方 Codex 预设全部直连厂商端点，连同火山豆包与腾讯混元；仍只提供 Chat Completions 的端点（百度千帆、腾讯 Token Plan、QwenCloud For Coding、StepFun、百灵、ModelScope 与各聚合平台）继续经本地路由转换，手册的「仅 Chat」示例也改为点名这些供应商。
+
+其余是一波由贡献者主导的正确性修复，关闭了几个挂了数月的 issue。代理侧：在每个 chunk 里保留空 `reasoning_content` 占位的 OpenAI 兼容上游不再让 Claude Code 被空 Thought 块刷屏、逐 token 换行；Codex Responses→Chat 转换器不再把 commentary 消息与紧随的工具调用拆成两条 assistant 消息——这曾让长任务在一句进度汇报后就结束；Claude Desktop 的一 token 模型探针夹到 Responses API 的最小值，映射模型不再被报为「不可用」；Codex 路由下的图片生成补上贴完整端点、大小写后缀与流式用量三处。两个数据完整性问题关闭：每次正常退出都把 Claude 的重试与超时设置抄到 Codex、Gemini、Grok Build 的代理行；同步统一供应商会清空子卡的用量脚本、通用配置退出与端点自动选择，并把卡片挤到列表底部。Codex 侧：卡片省略 `model_provider` 时接管现在尊重代理地址；用量导入经持久化的字节游标在 Windows NTFS 上识别正在增长的 rollout；托盘为托管 Codex 卡显示所绑 ChatGPT 账号的额度；Claude Fable 的周限额出现在卡片与托盘。Claude 供应商编辑器新增「禁用 Artifact 工具」快捷开关，给拒收 Claude Code Artifact 工具 schema 的网关用。
+
+预设侧：聚合平台 Codex 预设刷新到当前目录，DashScope/百炼改名千问AI平台并升到 Qwen 3.8（[#7183](https://github.com/farion1231/cc-switch/pull/7183)），MiniMax 默认改到 M3（[#7255](https://github.com/farion1231/cc-switch/pull/7255)），内置 DeepSeek Codex 目录镜像支持视觉的 `deepseek-flash`（[#7286](https://github.com/farion1231/cc-switch/pull/7286)），DeepSeek V4 家族按 V4.1 Flash 档调价。本版不改数据库 schema。
+
+**发布日期**：2026-09-11
+
+**更新规模**：22 commits | 62 files changed | +3,458 / -802 lines
+
+---
+
+### 新功能
+
+#### Claude 供应商编辑器新增「禁用 Artifact 工具」快捷开关
+
+部分第三方 Anthropic 兼容网关（DeepSeek 在列）用严格的正则校验器检查工具 JSON Schema，拒收 Claude Code 的 Artifact 工具在其 `str_replace` 数据库能力铺开后发出的 Unicode 属性转义（`\p{Cc}`、`\p{Cf}` 等）——此后每个请求都 400 `Invalid schema for function 'Artifact'`，与所选模型无关。Claude 快捷开关旁新增第六个复选框，在供应商上设置 `env.CLAUDE_CODE_DISABLE_ARTIFACT="1"`，把 Artifact 工具整个排除出 tools 数组；取消勾选时像其他开关一样删掉该键。四语文案与手册（zh/en/ja）的开关表已同步。
+
+#### Claude Fable 的周限额出现在供应商卡片与托盘
+
+Claude OAuth 用量 API 现在把按模型的周限额放在顶层 `limits[]` 数组里（`kind: "weekly_scoped"`，带 `scope.model.display_name` 与 `percent`），不再是独立的顶层窗口；解析器只读旧窗口，Fable 的限额从未显示过。`limits[]` 现在解析进 `seven_day_fable`、`seven_day_opus` 与 `seven_day_sonnet`——scoped 行覆盖同名旧窗口，重复与畸形行跳过，旧窗口、额外用量与未知窗口都保留。托盘给 Fable 单独一组标签，不再并进周 max 值；四语补「Fable」标签。
+
+#### 新增预设
+
+千问AI平台 Token Plan（[#7183](https://github.com/farion1231/cc-switch/pull/7183)）加入 Claude Code、Claude Desktop、Codex、Hermes、OpenClaw、OpenCode 与 Pi 七个应用的预设库，与下文的改名同批。存量供应商不受影响。
+
+#### `deepseek-flash` 与 `deepseek-v4-flash-vision-exp` 的定价行
+
+`deepseek-flash` 是 DeepSeek 目前唯一推荐的 id，`deepseek-v4-flash-vision-exp` 是官方安装脚本 1.2.0 之前写入的旧视觉名；两者都由 V4.1 Flash 服务，按其 $0.30/$1.20 每百万、缓存读 $0.006 计费。此前两者都没有行，而 `LIKE '{id}-%'` 的前缀回退只匹配更长的 id，这两个 id 下的请求一律按 $0 入账。
+
+---
+
+### 变更
+
+#### Kimi 的 Codex 预设改为原生 Responses 直连
+
+Kimi 开放平台（`api.moonshot.cn/v1`）与 Kimi For Coding（`api.kimi.com/coding/v1`）现在都原生提供 `/v1/responses`，官方 Codex 接入指南要求 `wire_api = "responses"`，于是两条预设从 `openai_chat`（本地代理做 Responses→Chat 转换、必须开路由接管）改为 `openai_responses`（Codex 直连）。两个端点都用真实密钥按 Codex 0.153.4 的完整请求形态实测（`reasoning.encrypted_content`、`reasoning.summary`、托管 web_search、回放的 reasoning 项），并用 `codex exec` 跑通端到端工具循环。`kimi-k3` 成为开放平台的默认模型与目录首行，`kimi-k2.7-code` 保留为第二行；只对 Chat 转换有意义的 `codexChatReasoning` 从两条预设移除，Kimi For Coding 的 `promptCacheRouting` 也去掉——原生路径上 Codex 自己发 `prompt_cache_key`；每个 Kimi 行声明 `supportsParallelToolCalls`，与官方 Kimi Code `models.json` 一致；不声明 reasoning 默认值，因为 `config.toml` 的 `model_reasoning_effort` 优先于目录默认值，后者只标记 `/model` 选择器。手册（zh/en/ja）的「仅 Chat」示例改为点名仍走 Chat 路由的供应商，「Kimi Code 拒收 `codex-cli` user agent」的过时说明已纠正。无后端改动。
+
+#### 聚合平台的 Codex 预设刷新到当前目录
+
+SiliconFlow（.cn）默认改为 `deepseek-ai/DeepSeek-V4-Flash`（1M 窗口，high/max 档，显式的 `enable_thinking`/`reasoning_effort` 约定），因为国内站的 MiniMax M2.5 已下线；Atlas Cloud 改为 `zai-org/glm-5.2`，其 Coding Plan 包含的最新 GLM（1M 窗口）；Novita 改为 `zai-org/glm-5.3`（1M，纯文本）；NVIDIA NIM 改为 `moonshotai/kimi-k3`（1M，文本+图片；NIM 接受 `reasoning_effort` 的 low/high/max、字段缺省时按 max，预设显式钉 high 与其 `config.toml` 一致）；OpenCode Go 的 GLM/Kimi 条目更新——`glm-5.3`（新默认）、`glm-5.3-flash` 与 `kimi-k3` 替换 `glm-5.2`、`glm-5.1` 与 `kimi-k2.7-code`，窗口、模态与档位按 models.dev 镜像，DeepSeek V4 Pro/Flash 与 MiMo V2.5 Pro 行保留。平台未文档化新模型思考/档位约定的（Atlas Cloud、Novita），预设带一条显式的空覆盖，后端不再按模型名注入厂商原生思考字段。
+
+#### DashScope/百炼预设改名千问AI平台并升到 Qwen 3.8（[#7183](https://github.com/farion1231/cc-switch/pull/7183)）
+
+国内百炼预设改名千问AI平台，配专属图标，控制台与 API Key 链接改到 `platform.qianwenai.com`；Qwen 系列在 Claude Code、Claude Desktop、Codex、Hermes、OpenClaw、OpenCode 与 Pi 七处升到 3.8 代——Opus/Sonnet/Haiku 角色对应 `qwen3.8-max` / `qwen3.7-plus` / `qwen3.8-flash`，统一使用官方的 983,616 token 窗口；国内 `Bailian For Coding` 预设（Claude Code、Claude Desktop、Hermes）改名 `千问AI平台 Coding Plan`，端点不变；OpenClaw/OpenCode/Pi 的模型元数据对齐官方客户端文档。国际 QwenCloud 预设保留名称、换专属图标；按量付费预设升到 Qwen 3.8，Token Plan 预设与之对齐（Codex 与 Hermes 本已带 3.8 行），QwenCloud For Coding 保留 `qwen3.7-plus`、`qwen3-coder-plus` 与 `coding-intl` 端点。端点只有一处例外：Pi 的 QwenCloud Token Plan 从 `/apps/anthropic`（Anthropic Messages）切到 `/compatible-mode/v1`（OpenAI Chat Completions），Hermes 与 OpenClaw 的 Token Plan 仍在 Anthropic 地址。
+
+#### MiniMax 预设默认 M3、清掉过期优惠（[#7255](https://github.com/farion1231/cc-switch/pull/7255)，修复 [#7254](https://github.com/farion1231/cc-switch/issues/7254)）
+
+官方 MiniMax 与 MiniMax (en) 预设在七套预设文件里都默认 `MiniMax-M3`——Claude Code 声明 1M 上下文（`MiniMax-M3[1M]` 配官方的 `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000`），Claude Desktop 启用 1M 支持，OpenClaw/OpenCode/Pi 元数据带 1,000,000 token 上下文、131,072 token 输出预算、图片输入与推理支持。过期的 Coding Plan 促销从所有预设与四语文案移除。存量配置与第三方默认值不变。
+
+#### DouBaoSeed 预设改名火山豆包
+
+七个应用预设文件里的显示名本地化：zh/zh-TW 为「火山 豆包AI」，en/ja 为「Volcengine Doubao」，沿用七牛/Compshare 的惯例——顶层名保留拉丁字母回退，中英文都能搜到。OpenCode 与 Pi 写进客户端配置文件的 `settingsConfig.name` 同步改名但保持 ASCII 形式（`Volcengine Doubao`）。Live 配置里的标识符刻意不动：Codex TOML 的 provider 名、Hermes 节点键 `doubao_seed`、Pi 的 provider 键、OpenClaw 的模型引用前缀、推广键与图标。
+
+#### DeepSeek V4 家族按 V4.1 Flash 档调价
+
+DeepSeek 已下线 V4 Flash，并宣布 2026-09-14 12:00（北京时间）起 V4 Pro 请求路由到 V4.1 Flash、按 Flash 价计费；本版提前执行这次回调。`deepseek-v4-flash`、`deepseek-v4-flash-0731` 与 `deepseek-v4-pro` 改为 $0.30/$1.20、缓存读 $0.006，修复条目只纠正仍是上一档高峰值的行，并链在 2026-08-16 的峰谷行之后，旧数据库会逐档跳到位。`deepseek-chat` 与 `deepseek-reasoner` 没有权威来源，保持不动。`deepseek-v4-pro` 同时退出纯文本确认表——它现在落在支持视觉的模型上，图片清洗对它 fail-open。
+
+#### Claude「应用到所有角色」按表单顺序取值
+
+把一个模型名一键抄到 Claude 模型映射所有角色的按钮，此前先取 `ANTHROPIC_MODEL`；现在按面板从上到下（Sonnet、Opus、Fable、Haiku、子智能体）读取，默认模型只作最后回退。
+
+#### Atlas Cloud 不再是赞助商
+
+赞助商身份从 README 四语赞助表、横幅、`isPartner`/`partnerPromotionKey` 标记与推广文案中移除；七个应用的预设本身保留，从赞助组移到非赞助组，端点、模型与图标不变。
+
+---
+
+### 修复
+
+#### 空 `reasoning_content` 占位符不再让 Claude Code 被空 Thought 块刷屏
+
+部分 OpenAI 兼容上游（GLM、Qwen、经 ModelScope/DashScope 的 DeepSeek-V4-Pro、百炼、京东云……）在每个内容 chunk 里保留 `reasoning_content: ""` 占位，而不是省略字段。OpenAI Chat→Anthropic SSE 转换器的 reasoning 分支只判断字段是否存在，又与内容分支共享「当前打开块」的状态，于是每个内容 chunk 都先关掉打开的文本块、开一个空 thinking 块、再重开文本块——N 个内容 chunk 变成 2N 个内容块，一半是空 thinking 块，Claude Code 渲染成每个 token 一行、外加几十个空 Thought 块，会话 JSONL 也随之膨胀。空 reasoning 现在在进入分支前就被过滤，与内容分支和非流式转换器已有的守卫一致；两条回归测试钉住占位形态与真实推理两种情况下的块索引、类型与顺序。（[#7227](https://github.com/farion1231/cc-switch/pull/7227)，修复 [#5028](https://github.com/farion1231/cc-switch/issues/5028)、[#4404](https://github.com/farion1231/cc-switch/issues/4404)；取代 [#4869](https://github.com/farion1231/cc-switch/pull/4869)、[#6421](https://github.com/farion1231/cc-switch/pull/6421)、[#6576](https://github.com/farion1231/cc-switch/pull/6576)）
+
+#### Codex 长任务不再在一句进度汇报后停在 Chat 上游
+
+Codex Responses→Chat Completions 转换器在同一模型回合里遇到 commentary 消息紧跟 `function_call` 项时，输出两条连续的 assistant 消息；Chat 上游把只有文本的那条当作完整回合，在预期的工具调用之前就返回 `finish_reason=stop`。待处理的工具调用现在合并进紧邻的、尚无 `tool_calls` 的 assistant 消息，待处理的 reasoning 按段附加以免并行调用重复，其他边界形态（user/tool 边界、上一批工具调用、媒体刷出）仍走新消息路径；合并后没有 reasoning 的调用仍做占位回填。（[#7280](https://github.com/farion1231/cc-switch/pull/7280)，修复 [#6529](https://github.com/farion1231/cc-switch/issues/6529)；取代 [#6530](https://github.com/farion1231/cc-switch/pull/6530)、[#5895](https://github.com/farion1231/cc-switch/pull/5895)；[#5860](https://github.com/farion1231/cc-switch/issues/5860) 同报）
+
+#### Claude Desktop 的模型探针在 Responses 上游下不再失败
+
+Responses API 拒收小于 16 的 `max_output_tokens`，而 Anthropic 客户端会合法地发很小的探针预算——Claude Desktop 的模型可用性探针用 `max_tokens=1`——Anthropic→Responses 转换原样复制这个值，严格的上游返回 400，Claude Desktop 在本地路由下把映射模型报为不可用。1 到 15 在转换时夹到 16；16 及以上、0 与非整数保持透传语义，正常会话请求逐字节不变，Codex OAuth 路径仍在之后剥掉 `max_output_tokens`。（[#7287](https://github.com/farion1231/cc-switch/pull/7287)，修复 [#7103](https://github.com/farion1231/cc-switch/issues/7103)）
+
+#### Codex 路由下的图片生成：贴完整端点、大小写后缀、流式用量
+
+`/images/edits` 路由与 Images/Responses/Compact/Chat 共用的后缀表已随 v3.20.2 发货，本轮补上围绕它们的三处缺口。Base URL 被贴成完整的 `/chat/completions` 或 `/responses` 端点且「完整 URL」开关关闭时，Images 与 Alpha Search 的兄弟端点现在按 Chat 路径已有的容错同样推导，不再把独立请求发到 `…/chat/completions/images/generations`。后缀识别与兄弟改写大小写不敏感（`/v1/Images/Edits/`、`/v1/Responses/Compact/`），并保留原 URL 前缀、百分号编码与查询串。流式 Images 用量从 `image_generation.completed` 事件的顶层 `usage` 解析（跳过不带 usage 的 `partial_image` 事件），再回落到 Chat Completions 流解析器，流式生图不再记 0 token。（[#7177](https://github.com/farion1231/cc-switch/pull/7177)，接续 [#7036](https://github.com/farion1231/cc-switch/pull/7036)）
+
+#### 退出与端口分配不再覆盖每应用的代理设置
+
+正常退出时，代理的恢复路径调用了旧的全局代理配置写入器去清早已退役的 `live_takeover_active` 标志；该写入器读 Claude 行、跑一条没有 WHERE 的 UPDATE，于是每次关机都把 Claude 的 `max_retries` 与三个超时字段抄到 Codex、Gemini、Grok Build 的行上——而这条 UPDATE 根本不带那个标志，这一步除了串写没有任何效果。临时监听端口的路径在每次代理启动时也做同样的事。死掉的写回已删除（live 配置恢复、备份清理与健康重置不变），解析出的临时端口改经只碰共享监听/日志列的全局配置接口持久化；两条回归测试给四个应用各自不同的设置，并断言两条路径都保住它们。（[#7210](https://github.com/farion1231/cc-switch/pull/7210)，修复 [#7204](https://github.com/farion1231/cc-switch/issues/7204)）
+
+#### 统一供应商同步保留子卡的设置与位置
+
+同步统一供应商会重新生成它的 Claude/Codex/Gemini 子供应商。子卡的 `settings_config` 与现有行合并，但 `meta`、`created_at` 与 `sort_index` 取自生成的对象，而统一供应商从 UI 过来时从不带这些——UPDATE 把子卡的用量脚本、通用配置退出、端点自动选择等每应用设置抹成 `{}`、排序索引置 NULL，卡片像被删除重建一样掉到列表底部。存量子卡现在保留这三个字段；名称、Base URL、密钥、模型、网站与备注仍由统一供应商驱动，首次创建仍继承父级的元数据。（[#7212](https://github.com/farion1231/cc-switch/pull/7212)，修复 [#7134](https://github.com/farion1231/cc-switch/issues/7134)）
+
+#### 省略 `model_provider` 的 Codex 卡接管时尊重代理地址
+
+Codex 卡的 TOML 没有 `model_provider` 时，Codex 回落到内置的 `openai` 供应商，而接管把代理地址写成 Codex 根本不读的顶层 `base_url`，请求绕过本地代理直连 `api.openai.com`。缺失的选择器现在视为内置 `openai` 供应商，代理地址写到 `openai_base_url`，既有的 legacy-reroute 迁移再把它变成带 `PROXY_MANAGED` bearer 的 `cc-switch` 自定义供应商表——与其他所有第三方接管同一形状。显式的供应商选择不变。（[#7263](https://github.com/farion1231/cc-switch/pull/7263)，修复 [#6256](https://github.com/farion1231/cc-switch/issues/6256)，关联 [#7217](https://github.com/farion1231/cc-switch/issues/7217)）
+
+#### Codex 用量导入在 Windows 上识别正在增长的 rollout
+
+Codex 在整个会话期间保持 rollout 的追加句柄打开，Windows NTFS 上文件增长时 mtime 不动，纯 mtime 的门永远跳过正在增长的 rollout。观察到的字节长度现在存进已有的 `session_log_sync.last_byte_offset` 列（Codex 行），只有 mtime 与大小都不变时才跳过；解析器手动按换行拆记录，不完整的尾记录下一轮再试、不推进行游标。后续修复把不完整尾巴的字节也算作已观察：此前只把完整消费的记录计入持久化长度，末尾停在半条记录或空白的 rollout（崩溃且未 resume 的会话）永远显得比文件短、每次同步全量重解析——行游标仍停在不完整记录之前，文件一增长就重试，未变的文件按 mtime+size 门跳过。（[#7219](https://github.com/farion1231/cc-switch/pull/7219)，修复 [#6060](https://github.com/farion1231/cc-switch/issues/6060)；另有一条后续提交）
+
+#### 托盘显示托管 Codex 卡所绑 ChatGPT 账号的额度
+
+自 [#6537](https://github.com/farion1231/cc-switch/pull/6537) 起，托盘刻意去掉了绑定托管 ChatGPT 账号的 Codex 官方卡的用量后缀，因为它只有一个由 Codex CLI 当前登录（先 macOS Keychain、后 `auth.json`）喂的全应用订阅缓存，绑定多个账号后无法安全地表示按账号的额度；供应商卡片查的是绑定账号，但结果到不了托盘，有多个 ChatGPT 登录的用户只看到 `Codex · <名称>` 而没有额度。用量缓存新增按账号键的 Codex OAuth 快照表，额度查询写穿——传输错误保留上一份好快照，鉴权/HTTP 失败则替换它，托盘隐藏失效的额度而不是显示过期的——每次写入排定一次托盘刷新。刷新与显示共用一个 `TrayUsageSource` 判定：托管 Codex 卡只读绑定账号的快照（绝不回落到供应商级或 CLI 快照），未保存用量开关时默认开启（与供应商卡片一致），带绑定的固定官方卡也走托管路径。重绑立即切到新账号的快照，旧账号的迟到响应不会覆盖标签。（修复 [#7267](https://github.com/farion1231/cc-switch/issues/7267)）
+
+#### DeepSeek 的 Codex 目录镜像支持视觉的 `deepseek-flash`
+
+内置的 DeepSeek 官方 Codex 目录刷新为厂商当前的 `models.json`（slug `deepseek-flash`、图片输入模态、`supports_image_detail_original`），`deepseek-v4-flash` 退出纯文本确认表：DeepSeek 仍接受这个旧 id 并把它路由到支持视觉的 V4.1 Flash，代理的媒体清洗与生成的 Codex 目录现在对它 fail-open，不再把图片替换成 `[Unsupported Image]`、也不再对 Codex 隐藏图片输入。（[#7286](https://github.com/farion1231/cc-switch/pull/7286)，修复 [#7283](https://github.com/farion1231/cc-switch/issues/7283)）
+
+#### 第三方 Token Plan 的 DeepSeek V4 行显式声明纯文本
+
+官方端点把 `deepseek-v4-flash` 路由到视觉模型后，这个 id 到处 fail-open，但百度千帆与腾讯 Token Plan 仍托管纯文本的 V4 部署——千帆 Coding Plan 文档写明图片输入返回 400，腾讯 2026-09-10 的计划名单只列 V4。它们的 Codex 预设行（flash 与 pro 两族，含 `-0731`/`-0813`/`-202605`/`-202606`）现在显式声明 `inputModalities: ["text"]`，不再依赖注册表；预设测试同时锁定官方 DeepSeek 预设保持不声明（fail-open）。（接续 [#7283](https://github.com/farion1231/cc-switch/issues/7283)）
+
+---
+
+### 升级提醒
+
+#### 本版不含数据库迁移
+
+schema 版本保持 18。Codex 的字节游标复用已有的 `session_log_sync.last_byte_offset` 列。
+
+#### 升级后 Codex rollout 会重新解析一次
+
+Codex 行还没有存储的字节长度，第一轮同步会在所有平台重读每个 rollout（只耗 CPU；已导入的事件按行偏移跳过，不会重复计数）。之后的轮次跳过未变文件。
+
+#### 已被覆盖的每应用代理设置不会自动恢复
+
+[#7210](https://github.com/farion1231/cc-switch/pull/7210) 止住了串写，但无法找回此前关机从 Claude 抄到 Codex、Gemini、Grok Build 的重试/超时值——到代理设置里检查一次，把与你配置不符的改回来。
+
+#### 统一同步从此保留子卡设置
+
+此前同步已经抹掉的设置（用量脚本、通用配置退出、端点自动选择、排序位置）需要重填一次。
+
+#### 没写 `model_provider` 的 Codex 卡接管时改走本地代理
+
+[#7263](https://github.com/farion1231/cc-switch/pull/7263) 之后这类卡不再悄悄直连 `api.openai.com`，与其他第三方接管一致。
+
+#### 预设改动只影响新建的供应商
+
+存量卡片保存的是创建时的快照。本版涉及：Kimi 的两条 Codex 预设——存量 Kimi 卡仍是 `openai_chat`，经路由继续可用；要直连就把卡片的上游格式改为 Responses，或重新导入预设（注意 Kimi 开放平台 Tier 0 密钥限 3 次/分钟，跑不完一个多请求的工具循环）；聚合平台的 Codex 目录；千问AI平台改名与 Qwen 3.8（含 Pi 的 QwenCloud Token Plan 协议切换）；MiniMax M3 默认值；火山豆包的显示名；以及千帆/腾讯 Token Plan 上 DeepSeek 行的纯文本声明（这些预设上的存量卡仍靠遇错剥图重试，或重新导入预设）。
+
+#### Codex catalog 类修复在下一次切换供应商时生效
+
+catalog 文件在切换时重新生成：本版是 DeepSeek 官方目录的 `deepseek-flash` 视觉条目（[#7286](https://github.com/farion1231/cc-switch/pull/7286)）。在 DeepSeek 卡上切走再切回一次即可。
+
+#### 定价
+
+`deepseek-flash` 与 `deepseek-v4-flash-vision-exp` 是新 seed 行，启动时的回填会把这些 id 此前按 $0 记录的历史请求补上价格。`deepseek-v4-flash` / `-0731` / `-pro` 的修复只纠正仍是 seed 高峰档值（0.44/1.32/0.014 与 1.32/3.96/0.044）的行；自定义过的行不动，历史费用_不会_重算。V4 Pro 的调整先于 DeepSeek 2026-09-14 的切换落地，在此之前的 V4 Pro 请求按 Flash 价计费。`deepseek-chat` 与 `deepseek-reasoner` 保持原值。
+
+#### Anthropic 客户端向 Responses 上游探测时 `max_tokens` 1–15 现在发 16
+
+无需配置。
+
+#### Chat 上游的 Codex 卡升级后会有一次前缀缓存未命中
+
+[#7280](https://github.com/farion1231/cc-switch/pull/7280) 合并后的 commentary+工具调用消息让请求字节变了一次；之后形状逐轮稳定。
+
+#### 托管 Codex 卡默认在托盘显示额度
+
+未保存过用量开关时默认显示，与供应商卡片一致；关掉卡片的用量开关即可隐藏。
+
+---
+
+### 风险提示
+
+#### 沿用的提示
+
+**xAI Grok OAuth 登录**：复用官方 Grok CLI 的公开 OAuth 客户端身份，使用可能导致账号被限制或封禁——详见 [v3.18.0 release notes](/zh/changelog/3.18.0#风险提示)。
+
+**Codex OAuth 反向代理**：使用 ChatGPT 订阅的 Codex OAuth 反代可能违反 OpenAI 服务条款，详情见 [v3.13.0 release notes](/zh/changelog/3.13.0#风险提示)。
+
+**SuperGrok 配额查询**：供应商卡片的配额展示依赖 grok.com 的非公开计费端点，xAI 调整接口后可能失效——详见 [v3.19.0 release notes](/zh/changelog/3.19.0#风险提示)。
+
+**第三方供应商路由**：通过 CC Switch 本地代理把 Codex、Claude Desktop 或 Grok Build 的请求转换并转发到第三方供应商时，各供应商对计费、合规与数据留存的约束不同，请在使用前阅读目标供应商的服务条款。
+
+用户启用上述功能即表示自行承担相关风险。CC Switch 不对因使用这些功能而导致的任何账号限制、警告或服务暂停承担责任。
+
+---
+
+### 致谢
+
+本版 22 个提交里有 11 个来自 8 位外部贡献者。
+
+#### 代码贡献
+
+- 感谢 @gongzhenhu：空 `reasoning_content` 占位符的过滤（[#7227](https://github.com/farion1231/cc-switch/pull/7227)，修复 [#5028](https://github.com/farion1231/cc-switch/issues/5028)、[#4404](https://github.com/farion1231/cc-switch/issues/4404)），首次投稿；同一问题 @AdJIa（[#4869](https://github.com/farion1231/cc-switch/pull/4869)）、@U1traTC（[#6421](https://github.com/farion1231/cc-switch/pull/6421)）与 @Hypocrite000（[#6576](https://github.com/farion1231/cc-switch/pull/6576)）更早各自提出过修法。
+- 感谢 @fszcd：Codex commentary 与工具调用的合并（[#7280](https://github.com/farion1231/cc-switch/pull/7280)，修复 [#6529](https://github.com/farion1231/cc-switch/issues/6529)），首次投稿；@BigStrongSun 自报该问题并在 [#6530](https://github.com/farion1231/cc-switch/pull/6530) 提交过修法，@xu-xiang 在 [#5895](https://github.com/farion1231/cc-switch/pull/5895) 也尝试过。
+- 感谢 @SailingLoong：Claude Desktop 探针的 `max_tokens` 夹到 16（[#7287](https://github.com/farion1231/cc-switch/pull/7287)，修复 [#7103](https://github.com/farion1231/cc-switch/issues/7103)）与 DeepSeek 视觉目录镜像（[#7286](https://github.com/farion1231/cc-switch/pull/7286)，修复 [#7283](https://github.com/farion1231/cc-switch/issues/7283)）；探针夹值这一问题 @John1Tang 更早在 [#7126](https://github.com/farion1231/cc-switch/pull/7126) 也提出过修法。
+- 感谢 @Komikawayi：三条修复——退出串写每应用代理设置（[#7210](https://github.com/farion1231/cc-switch/pull/7210)，修复 [#7204](https://github.com/farion1231/cc-switch/issues/7204)）、统一供应商同步保留子卡元数据（[#7212](https://github.com/farion1231/cc-switch/pull/7212)，修复 [#7134](https://github.com/farion1231/cc-switch/issues/7134)）、Codex 缺 `model_provider` 时尊重代理地址（[#7263](https://github.com/farion1231/cc-switch/pull/7263)，修复 [#6256](https://github.com/farion1231/cc-switch/issues/6256)）。
+- 感谢 @woniuxiaoshu：Codex 用量的持久化字节游标（[#7219](https://github.com/farion1231/cc-switch/pull/7219)，修复 [#6060](https://github.com/farion1231/cc-switch/issues/6060)），首次投稿；同一问题 @LimiChan-2026（[#6080](https://github.com/farion1231/cc-switch/pull/6080)，同时是 #6060 的报告者）、@woshimaxfive（[#6027](https://github.com/farion1231/cc-switch/pull/6027)，同时在 [#6023](https://github.com/farion1231/cc-switch/issues/6023) 报告了 Windows 下的同一现象）与 @puppnn（[#6246](https://github.com/farion1231/cc-switch/pull/6246)）更早各自提出过修法。
+- 感谢 @thisTom：Codex 图片生成的三处 follow-up（[#7177](https://github.com/farion1231/cc-switch/pull/7177)），接续他自己的 [#7036](https://github.com/farion1231/cc-switch/pull/7036)。
+- 感谢 @shigzz：千问AI平台改名与 Qwen 3.8 刷新（[#7183](https://github.com/farion1231/cc-switch/pull/7183)），首次投稿。
+- 感谢 @jellyjelly814：MiniMax M3 默认值与过期优惠清理（[#7255](https://github.com/farion1231/cc-switch/pull/7255)），自报自修 [#7254](https://github.com/farion1231/cc-switch/issues/7254)，首次投稿；M3 默认值的升级 @octo-patch 更早在 [#3567](https://github.com/farion1231/cc-switch/pull/3567) 提出过，M3 定价与模态在 [#6396](https://github.com/farion1231/cc-switch/pull/6396)。
+
+#### 问题反馈
+
+- 感谢 @Sunshine-SACA 与 @snowing0427 报告空 thinking 块刷屏与内容块碎片化（[#5028](https://github.com/farion1231/cc-switch/issues/5028)、[#4404](https://github.com/farion1231/cc-switch/issues/4404)），以及在 #4404 补充 v3.20.0 上 ModelScope Qwen3-Coder 复现的 @csj-ccc。
+- 感谢 @BigStrongSun 与 @aducker2016 报告 Responses→Chat 转换拆分 assistant 回合（[#6529](https://github.com/farion1231/cc-switch/issues/6529)、[#5860](https://github.com/farion1231/cc-switch/issues/5860)）——后者定位到了 DeepSeek 无限复读的同一根因。
+- 感谢 @haoyubai212 报告 Claude Desktop 探针在 Responses 上游下 400（[#7103](https://github.com/farion1231/cc-switch/issues/7103)）。
+- 感谢 @HEYUESAMA 报告 DeepSeek 图片被替换为 `[Unsupported Image]`、目录声明纯文本（[#7283](https://github.com/farion1231/cc-switch/issues/7283)）。
+- 感谢 @Jason-purse 报告重启后 Codex 的 failover 设置被 Claude 的覆盖（[#7204](https://github.com/farion1231/cc-switch/issues/7204)）。
+- 感谢 @auqhjjqdo 报告统一供应商同步让用量查询等配置失效（[#7134](https://github.com/farion1231/cc-switch/issues/7134)）。
+- 感谢 @pemagic 报告 Codex 直连 `api.openai.com` 绕过本地路由（[#6256](https://github.com/farion1231/cc-switch/issues/6256)），以及 @Tiacoo 在 [#7217](https://github.com/farion1231/cc-switch/issues/7217) 记录同一现象在 Codex 0.153.x 上的表现。
+- 感谢 @LimiChan-2026 与 @MoEternal 报告 Windows 上 Codex 用量漏采（[#6060](https://github.com/farion1231/cc-switch/issues/6060)、[#7264](https://github.com/farion1231/cc-switch/issues/7264)）。
+- 感谢 @ringzxw 报告绑定多个 ChatGPT 账号时托盘不显示额度（[#7267](https://github.com/farion1231/cc-switch/issues/7267)）。
+
+---
+
+### 下载与安装
+
+访问 [Releases](https://github.com/farion1231/cc-switch/releases/latest) 下载对应版本，或从官网 [ccswitch.io](https://ccswitch.io) 获取（下载经 Cloudflare 边缘节点分发，不依赖 GitHub 可达）。
+
+#### 系统要求
+
+| 系统    | 最低版本                   | 架构                                |
+| ------- | -------------------------- | ----------------------------------- |
+| Windows | Windows 10 及以上          | x64 / ARM64                         |
+| macOS   | macOS 12 (Monterey) 及以上 | Intel (x64) / Apple Silicon (arm64) |
+| Linux   | 见下表                     | x64 / ARM64                         |
+
+#### Windows
+
+| 文件                                     | 说明                                |
+| ---------------------------------------- | ----------------------------------- |
+| `CC-Switch-v3.20.3-Windows.msi`          | **推荐** - MSI 安装包，支持自动更新 |
+| `CC-Switch-v3.20.3-Windows-Portable.zip` | 便携版，解压即用，不写入注册表      |
+
+Windows ARM64 设备请选择文件名中带 `arm64` 标识的对应制品。
+
+#### macOS
+
+| 文件                             | 说明                                          |
+| -------------------------------- | --------------------------------------------- |
+| `CC-Switch-v3.20.3-macOS.dmg`    | **推荐** - DMG 安装包，拖入 Applications 即可 |
+| `CC-Switch-v3.20.3-macOS.zip`    | 解压后拖入 Applications，Universal Binary     |
+| `CC-Switch-v3.20.3-macOS.tar.gz` | 用于 Homebrew 安装和自动更新                  |
+
+Homebrew 安装：
+
+```bash
+brew install --cask cc-switch
+```
+
+更新：
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux 资产同时提供 **x86_64** 和 **ARM64**（`aarch64`）两种架构。资产文件名中包含架构标识，请按你机器的 `uname -m` 输出选择对应版本：
+
+- `CC-Switch-v3.20.3-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.3-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| 发行版                                  | 推荐格式    | 安装方式                                                               |
+| --------------------------------------- | ----------- | ---------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`      | `sudo dpkg -i CC-Switch-*.deb` 或 `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`      | `sudo rpm -i CC-Switch-*.rpm` 或 `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`      | `sudo zypper install ./CC-Switch-*.rpm`                                |
+| Arch Linux / Manjaro                    | `.AppImage` | 添加执行权限后直接运行，或使用 AUR                                     |
+| 其他发行版 / 不确定                     | `.AppImage` | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`              |
+
+## [3.20.2] - 2026-09-07
+
+> 这一版仍以 Codex 为主线，但形态从上一版的「一次重设计」变成「一波兼容性修复」：**Grok 终于能经 xAI 原生 Responses API 在 Codex 路由下跑通**——xAI 拒收的工具 schema、Codex 拒收的整数浮点、多智能体注入的邮箱消息、xAI 不认识的 Codex 角色型号，四道坎逐一拆掉；围绕它的一族「一因一果」修复：Grok OAuth 卡不再被 v3.20.1 的切换闸误拦、接管不再把 Codex 卡在登录屏、GPT-6 走 Codex OAuth 不再报「需要更新 Codex」、Claude Code 在 Codex OAuth 上恢复并行工具调用、内置图片生成走通本地路由、四个 catalog 缺陷（旧版 Codex 拒载、DeepSeek 下 MCP 工具全隐身、视觉型号被判纯文本、Kimi 工具 schema 400）关闭，智谱 GLM 预设改指官方 Responses 端点。用量侧，Codex resume 后统计停摆与代理每轮打断前缀缓存两条硬修复落地。预设阵营新增腾讯云 Token Plan、QwenCloud、AICodeWith 与两家赞助商 9527CODE、SoleAPI，定价表补入七个新模型并做了一轮九月调价。**本版不含数据库迁移。**
+
+### 重点内容：你现在可以
+
+- **在 Codex 里经 xAI 原生 Responses 跑 Grok**（[#6917](https://github.com/farion1231/cc-switch/pull/6917)，修复 [#6815](https://github.com/farion1231/cc-switch/issues/6815)）：xAI 拒收的 Codex Desktop 工具 schema 被折叠、Grok 回传的整数浮点被改写、多智能体子任务的 `agent_message` 被翻译成普通消息、`gpt-5.6-sol` 一类角色型号被映射到你配置的 Grok 模型——子智能体不再 422，工具调用不再被拒。
+- **正常切换 Grok OAuth 卡、正常接管**：v3.20.1 的无密钥安全闸误拦了代理注入令牌的 OAuth 卡；接管在直接切换删除 `auth.json` 之后不再把 Codex 困在登录屏。
+- **用 GPT-6 走 Codex OAuth 接管**（[#7132](https://github.com/farion1231/cc-switch/pull/7132)）：自报的 Codex 客户端版本升到 0.153.4，不再被 ChatGPT 后端以「需要更新 Codex」拒绝。
+- **让 Claude Code 在 Codex OAuth 上并行调用工具**（[#7024](https://github.com/farion1231/cc-switch/pull/7024)，修复 [#5719](https://github.com/farion1231/cc-switch/issues/5719)）：`parallel_tool_calls` 默认改为 true，每轮不再只允许一个工具调用。
+- **在 Codex 路由下使用内置图片生成与编辑**（[#7036](https://github.com/farion1231/cc-switch/pull/7036)，修复 [#5429](https://github.com/farion1231/cc-switch/issues/5429)、[#6745](https://github.com/farion1231/cc-switch/issues/6745)）：`/images/generations` 与 `/images/edits` 两条路由经本地代理透传，用量按 token 记账。
+- **在 DeepSeek 原生预设下看到 MCP 工具**（[#6653](https://github.com/farion1231/cc-switch/pull/6653)，修复 [#6647](https://github.com/farion1231/cc-switch/issues/6647)）：catalog 不再声明 DeepSeek 不支持的 `tool_search`，MCP 工具直接列出。
+- **Codex 桌面端经本地代理接 Kimi/Moonshot 不再必现 400**（[#6863](https://github.com/farion1231/cc-switch/pull/6863)，修复 [#6867](https://github.com/farion1231/cc-switch/issues/6867)）：带兄弟关键字的 `$ref` 只对 Moonshot 域名改写成 `allOf`，其他供应商的 schema 逐字节不变。
+- **让智谱 GLM 在 Codex 直连**（#6957，修复 [#6944](https://github.com/farion1231/cc-switch/issues/6944)）：预设改指官方 Responses 端点 `/api/v1`、默认 glm-5.3，存量卡需重新导入。
+- **resume 之后用量继续累计**（[#6905](https://github.com/farion1231/cc-switch/pull/6905)，修复 [#6904](https://github.com/farion1231/cc-switch/issues/6904)）：回退过的线程再 resume 时写入的双 UUID rollout 文件不再被永久搁置，积压用量自动回填到原日期。
+- **在 OpenAI 格式上游重新命中前缀缓存**（[#6941](https://github.com/farion1231/cc-switch/pull/6941)，修复 [#6789](https://github.com/farion1231/cc-switch/issues/6789)）：Claude Code 每轮注入的中途 system 消息不再被合并到对话开头，DeepSeek、GLM、Kimi 一类端点的缓存命中率不再从 99% 掉到 20%。
+- **一键添加新供应商**：腾讯云 Token Plan（六应用，[#7011](https://github.com/farion1231/cc-switch/pull/7011)）、QwenCloud（七应用，[#6214](https://github.com/farion1231/cc-switch/issues/6214)）、AICodeWith（八应用）、赞助商 9527CODE 与 SoleAPI（九应用）；Pi 补齐腾讯 TokenHub / Token Plan（[#7159](https://github.com/farion1231/cc-switch/pull/7159)）与 PPIO（[#6870](https://github.com/farion1231/cc-switch/pull/6870)）。
+- **看到 Fable 5.1 / Mythos 5.1、GPT-6 Astra、GLM-5.3、Gemini 3.8 Flash 的真实成本**：此前这些请求按 $0 记账；Sonnet 5 按 Anthropic 转正口径改回 $2/$10。
+- **再次看到 Hermes 的升级按钮**：最新版本改读 GitHub Releases，不再永远停在 PyPI 的 0.19.0。
+
+---
+
+### 使用攻略
+
+- **[添加供应商](/zh/docs?section=providers&item=add)**：新增预设的导入入口，以及「预设改动只影响新建供应商」的含义。
+- **[请求路由](/zh/docs?section=proxy&item=routing)**：Grok 经 xAI 原生 Responses、Codex 图片端点透传都走这条路径。
+- **[用量统计](/zh/docs?section=proxy&item=usage)**：定价表回填与 resume 积压用量的记账口径。
+
+---
+
+> [!WARNING]
+>
+> ## 唯一官方渠道声明（请务必阅读）
+>
+> CC Switch 是**完全免费、开源**的桌面应用，**不会向用户收取任何费用**。请仅通过下列官方渠道获取本软件：
+>
+> | 类别     | 唯一官方                                                                       |
+> | -------- | ------------------------------------------------------------------------------ |
+> | 官网     | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | 源码     | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | 下载     | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | 作者     | **[@farion1231](https://github.com/farion1231)**                               |
+> | 举报山寨 | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **任何向你收费、要求充值、或索取登录凭据的"CC Switch"网站或客户端均为假冒**。如果你被诱导支付了费用，请立即停止操作并通过 GitHub Issues 反馈。
+
+---
+
+### 概览
+
+v3.20.1 之后的开发依旧由 Codex 领衔，但这一次是一波兼容性修复而不是一次重设计。最长的一条线是 Grok：xAI 的原生 Responses API 在几处与 Codex 的假设相左——它在采样前就拒收 Codex Desktop 的工具 schema、Grok 回传的 JSON 整数带小数点而 Codex 的解析器拒收、Codex 多智能体模式注入的 `agent_message` 邮箱项 xAI 无法反序列化、Codex 自己的角色型号（如 `gpt-5.6-sol`）xAI 直接 404。本版把这四道坎在同一个原生 Responses 闸门后逐一拆掉，Grok 终于能在 Codex 路由下完整工作，包括子智能体。
+
+围绕它是一族「一因一果」的修复：v3.20.1 引入的无密钥安全闸误拦了代理注入令牌的 Grok OAuth 卡；直接切换删掉 `auth.json` 之后再开接管，Codex 会被过时的 `requires_openai_auth = true` 困在登录屏；GPT-6 走 Codex OAuth 接管被后端以客户端版本过旧拒绝；Claude Code 在 Codex OAuth 上被强制串行调用工具；内置图片生成在本地路由下 404；四个 catalog 缺陷——旧版 Codex 拒载 catalog、DeepSeek 预设下 MCP 工具全部隐身、DeepSeek 视觉型号被判纯文本、Kimi 工具 schema 必现 400——各自关闭；智谱 GLM 预设从 Chat 端点改指官方 Responses 端点。用量侧两条硬修复：Codex resume 之后统计静默停摆，以及代理把 Claude Code 每轮注入的中途 system 消息合并到开头、打断上游前缀缓存。
+
+预设库新增腾讯云 Token Plan、QwenCloud、AICodeWith 与赞助商 9527CODE、SoleAPI，Pi 补齐腾讯与 PPIO；定价表补入七个新模型行并按各厂商九月官方价页做了一轮调价。本版不改数据库 schema。
+
+**发布日期**：2026-09-07
+
+**更新规模**：52 commits | 71 files changed | +10,483 / -573 lines
+
+---
+
+### 新功能
+
+#### 新增预设
+
+腾讯云 Token Plan（六产品 × 六应用，[#7011](https://github.com/farion1231/cc-switch/pull/7011)）、QwenCloud（三计划 × 七应用，[#6214](https://github.com/farion1231/cc-switch/issues/6214)）、AICodeWith（八应用）与两家赞助商 9527CODE、SoleAPI（九应用）加入预设库；Pi 补齐腾讯 TokenHub / Token Plan（[#7159](https://github.com/farion1231/cc-switch/pull/7159)）与 PPIO（[#6870](https://github.com/farion1231/cc-switch/pull/6870)）。存量供应商不受影响；需要重新导入的情形见升级提醒。
+
+#### 七个新模型的定价行
+
+Claude Fable 5.1 与 Mythos 5.1：$10/$50 每百万，缓存读 $0.25、缓存写 $12.50（[#7051](https://github.com/farion1231/cc-switch/pull/7051)，修复 [#7050](https://github.com/farion1231/cc-switch/issues/7050)）——此前没有行，这些请求一律按 $0 入账，因为前缀规则只找更长的带日期 id、无法回落到 `claude-fable-5`；GLM-5.3：$1.40/$4.40，缓存读 $0.26，与 Z.ai 官方价一致（[#6591](https://github.com/farion1231/cc-switch/pull/6591)）；GLM-5.3 Flash：$0.15/$0.50，缓存读 $0.03（[#7163](https://github.com/farion1231/cc-switch/pull/7163)）；GPT-6 Astra：$10/$50，缓存读 $1、缓存写 $12.50，low/medium/high/xhigh 后缀回落到基础行（[#7162](https://github.com/farion1231/cc-switch/pull/7162)）；Gemini 3.8 Flash：$0.75/$3.75，缓存读 $0.075，无缓存写费（[#7164](https://github.com/farion1231/cc-switch/pull/7164)）；Qwen3.8 Flash：$0.15/$0.47，1M 窗口内不分档，缓存读/写 $0.016/$0.20。全部只是 seed 行、不改 schema；存量安装下次启动即拿到，启动时的成本回填会把这些 id 此前按 $0 记录的历史行补上价格。
+
+---
+
+### 变更
+
+#### 2026 年 9 月定价刷新
+
+Sonnet 5 改回 $2/$10——Anthropic 价页现已注明介绍价即标准价、9 月 1 日涨到 $3/$15 的计划不再执行——并带一条守卫修复：仍是 seed 值 3/15/0.30/3.75 的安装被纠正，用户自定义过的行不动（[#7051](https://github.com/farion1231/cc-switch/pull/7051)）。GPT-5.6 Sol、裸名 `gpt-5.6` 及其五个档位后缀行同步从 $5/$30（缓存读 $0.50、写 $6.25）降到促销价 $4/$20（缓存读 $0.40、写 $5），至少持续到 2026-11-21。Gemini 3.6 Flash 从 $1.50/$7.50/$0.15 降到与 3.8 Flash 相同的介绍价 $0.75/$3.75/$0.075，至 2026-12-31。MiniMax M2、M2.1、M2.5 统一为官方按量价 $0.30/$1.20，缓存读 $0.03、缓存写 $0.375——后者此前记为零。每项调价都是 seed 加一条按旧值守卫的修复条目，追加在既有链条之后，老数据库会逐级经过中间价位。
+
+---
+
+### 修复
+
+#### Grok 经 xAI 原生 Responses API 在 Codex 路由下跑通
+
+一组贡献者提交关闭了原生 Responses 通往 xAI 路径上四个互相独立的故障。xAI 在采样前就拒收 Codex Desktop 的内置工具 schema，于是请求路径上折叠根级 `oneOf`/`anyOf` 函数参数（[#6815](https://github.com/farion1231/cc-switch/issues/6815)），各分支的 required 取交集而不是并集，压平后的 `oneOf` 不会强求所选分支没有的字段。Grok 回传的 JSON 整数带小数点，Codex 的解析器拒收为整数，于是已完成 `function_call` 参数里的整数浮点被改写（恰好 2^64 现在直接拒绝而不是静默改写差一）。Codex 多智能体模式注入的 `agent_message` 邮箱项 xAI 无法反序列化，每个子任务在任何工具运行前就 422，于是这些项被改写成普通 user 消息、加密内容压平为文本。xAI 对 Codex 的角色型号（如 `gpt-5.6-sol`）直接 404，于是未知的请求模型被映射到供应商配置的模型（catalog 里的 `grok-4.5` 一类与任何 `grok` 前缀 id 原样放行），且映射先于清洗执行，落到 grok-4.5 上的子智能体也会被剥掉不支持的采样字段。全部逻辑收在一个原生 Responses 闸门后的独立模块里，便于在上游覆盖同样场景之前 rebase 或 cherry-pick。grok-4.5 的 xAI 预设现在声明 low/medium/high/xhigh：2026-08-30 实测该端点接受这四档、对 `max` 报 HTTP 400，而 Codex 不会把目录外的档位夹回范围。（[#6917](https://github.com/farion1231/cc-switch/pull/6917)）
+
+#### 切换到 Grok OAuth 的 Codex 卡不再被拒绝
+
+v3.20.1 的 config-only 切换重构把无密钥安全闸推广到所有写入路径，误伤了代理托管的 OAuth 卡（xAI Grok OAuth）：它们本来就无密钥——本地代理逐请求注入真实令牌——但预设快照继承了 0.149 之前模板的 `requires_openai_auth = true`，安全闸把它当作「会回落到官方登录」而拒绝切换。修的是快照而不是给闸门开例外：对代理注入的 OAuth 供应商（xAI OAuth 与 GitHub Copilot；Codex OAuth 刻意排除，官方登录*就是*它的凭据）在活跃自定义表上把该标志强制为 `false`，挂在共享的有效供应商构建器里，预检、普通写入与代理备份/接管投影看到同一形状，Codex 0.149 无需读 `auth.json` 即判定为未鉴权。预设源头现在就输出 `false`，存量卡在下一次切换时自愈。
+
+#### 接管不再把 Codex 困在登录屏
+
+「非接管切换时保留官方登录」关闭（默认）时，直接切换到第三方供应商会删除 `~/.codex/auth.json`；此后再开启代理接管，`config.toml` 从存量卡重建，而卡上仍带 0.149 之前的 `requires_openai_auth = true`，于是 Codex ≥ 0.149 即使已有代理占位 bearer token 也停在登录屏——接管中执行 `codex logout` 后热切换也踩同一个坑。接管写入器现在按 Codex 自己会观察到的登录状态戳记活跃自定义表的标志，与直接切换的计划对齐：先按 Codex 的规则解析鉴权模式（显式 `auth_mode` 优先，其次个人访问令牌、Bedrock API 密钥、Bedrock 访问密钥、`OPENAI_API_KEY`、ChatGPT）再核对凭据，紧邻过期 API 密钥的 Bedrock 凭据永远不会被抬举为 OpenAI 登录；先判定凭据存储再碰 `auth.json`——keyring 与 auto 存储无法从磁盘判定、保留卡上原值，ephemeral 存储一律视为未登录，只有 file 存储才读文件，文件缺失、不可读或损坏都视为未登录且不再让接管写入失败。代理注入的 OAuth 卡无论磁盘上是什么都保持中和后的 `false`；官方透传与托管官方分支不动。
+
+#### 重复的托管 ChatGPT 账号会被拒绝
+
+普通托管账号登录若 ChatGPT workspace _与_ 稳定用户身份（id_token 的 subject）同时匹配已有账号，会以本地化提示拒绝而不是新建第二行。检查在存储锁内执行，并发完成的登录无法漏进重复；刷新锁现在只在定向重鉴权时获取，被拒的添加不会留下锁条目。同一 workspace 的不同用户仍可并存。（[#7061](https://github.com/farion1231/cc-switch/pull/7061)）
+
+#### GPT-6 走 Codex OAuth 接管不再被拒为「需要更新 Codex」
+
+Claude 转 Codex OAuth 路由上的 `gpt-6-astra` 请求自报 Codex 0.144.1，低于该模型 0.153.0 的最低客户端版本，ChatGPT 后端回 HTTP 400。自报版本升为 0.153.4，originator 与版本常量在生成与模型发现之间共享——后者此前发的是 cc-switch 自己的包版本与 originator。（[#7132](https://github.com/farion1231/cc-switch/pull/7132)，关联 [#7129](https://github.com/farion1231/cc-switch/issues/7129)）
+
+#### Claude Code 在 Codex OAuth 上恢复并行工具调用
+
+来自 Anthropic 的请求没有显式给值时，Codex OAuth 请求把 `parallel_tool_calls` 默认为 false，迫使 Claude Code 每轮只能调用一个工具。默认改为 true（与 codex-rs 一致），Anthropic 的 `tool_choice.disable_parallel_tool_use` 映射为 Responses 侧的反值，显式串行仍被保留。接力自 [#5722](https://github.com/farion1231/cc-switch/pull/5722)。（[#7024](https://github.com/farion1231/cc-switch/pull/7024)，修复 [#5719](https://github.com/farion1231/cc-switch/issues/5719)）
+
+#### Codex 内置图片生成在路由下可用
+
+Codex 的 ImageGen 工具调用旧版 OpenAI Images API，而本地代理只注册了 Responses、Chat Completions、Compact 与 Alpha Search 路由，`/v1/images/generations` 返回空 404。generations 的别名（裸路径、`/v1`、`/v1/v1`、`/codex/v1`）现在作为与 Alpha Search 共用的 Codex 独立透传转发，Alpha Search 的完整 URL 改写被泛化为从完整的 Responses/Compact/Chat URL 推导兄弟 Images URL（已有 Images URL 原样保留，不透明的完整 URL 关闭失败），响应里的输入/输出 token 经 Codex 用量解析器记账。后续一笔补上 `/images/edits`——ImageGen 一旦引用已有图片（显式路径或最近生成的 N 张）就切换到它，此前仍打到空路由；两条路由共享一张后缀表，把任一条配成完整 URL 的供应商都能推导出另一条。（[#7036](https://github.com/farion1231/cc-switch/pull/7036)，修复 [#5429](https://github.com/farion1231/cc-switch/issues/5429)、[#6745](https://github.com/farion1231/cc-switch/issues/6745)）
+
+#### 旧版 Codex 重新能加载 catalog
+
+Codex 0.144.5 到 0.148.0-alpha.15 把 `supports_parallel_tool_calls` 声明为 catalog 必填字段，而上游 2026-08-14 已把它从模型信息里删除——新版刷新的 `models_cache.json` 没有该字段，从它克隆出的 ProxyChat catalog 被同机的旧版 Codex 以「missing field」拒载。该字段加入必填回填清单、从内置 gpt-5.5 模板取值（true）；已有值绝不覆盖，新版对多余键视而不见。用真实二进制验证：旧 catalog 被 0.147.0 与 0.148.0-alpha.15 拒绝，新 catalog 在两者与 0.148.0 上都能加载。（[#6666](https://github.com/farion1231/cc-switch/pull/6666)，修复 [#6661](https://github.com/farion1231/cc-switch/issues/6661)、[#6709](https://github.com/farion1231/cc-switch/issues/6709)）
+
+#### DeepSeek 原生预设下 MCP 工具重新可见
+
+内置的官方 catalog 为 deepseek-v4-pro 与 deepseek-v4-flash 声明了 `supports_search_tool = true`，而 Codex 用这个标志决定是否把 MCP 工具延迟到 `tool_search` 之后——DeepSeek 的 Responses API 根本不提供 `tool_search`，于是所有 MCP 工具被藏起来、一个都调不到。两个模型现在声明 false，Codex 直接列出 MCP 工具；托管 web search 由供应商能力门控而不是这个标志，不受影响，DeepSeek 服务端的联网搜索也照常工作。（[#6653](https://github.com/farion1231/cc-switch/pull/6653)，修复 [#6647](https://github.com/farion1231/cc-switch/issues/6647)）
+
+#### DeepSeek 镜像 catalog 里的视觉型号不再被判纯文本
+
+内置 DeepSeek catalog 里没有的型号会克隆旗舰条目、继承它的纯文本输入模态，`deepseek-v4-flash-vision-exp` 一类视觉型号因此失去图片输入。未匹配的型号现在与非厂商路径一样经注册表解析模态、失败即放行；用户显式设置的模态仍优先，匹配到的型号逐字保留厂商声明。另外 `glm-5.3` 加入已确认纯文本清单，其 `[1M]` 变体被识别、`glm-5.3v` 不受波及（[#6851](https://github.com/farion1231/cc-switch/pull/6851)）。（[#6750](https://github.com/farion1231/cc-switch/pull/6750)，修复 [#6725](https://github.com/farion1231/cc-switch/issues/6725)）
+
+#### Codex 桌面端经本地代理接 Kimi/Moonshot 不再因工具 schema 必现 400
+
+Moonshot 的 Chat Completions 校验器（`api.moonshot.cn`、`api.moonshot.ai` 与 Kimi For Coding 端点 `api.kimi.com`）拒收带兄弟关键字的 `$ref`，而 Codex Desktop 的内置工具 schema 正是这种形状——经本地代理路由到 Kimi 的每一轮桌面请求都失败。解析出的上游域名是 Moonshot/Kimi 时，Responses 转 Chat 之后每个带兄弟键的 `$ref` 被移入 `allOf`、兄弟键留在原位；遍历只进入 schema 值的关键字，改写幂等。其他供应商的工具 schema 逐字节不变，Codex 转 Anthropic 路径不动——Moonshot 的 Anthropic 兼容端点接受原始形状。（[#6863](https://github.com/farion1231/cc-switch/pull/6863)，修复 [#6867](https://github.com/farion1231/cc-switch/issues/6867)）
+
+#### 智谱 GLM 的 Codex 预设改指官方 Responses 端点
+
+智谱每个站点文档写明三个 Base URL——Anthropic `/api/anthropic`、Chat `/api/coding/paas/v4`、Responses `/api/v1`——并警告用错端点无法消耗 Coding Plan 额度；Codex 直连说的是 Responses，而 400 `unknown variant custom` 正来自 Chat 端点那个严格的旧网关。「Zhipu GLM」与「Zhipu GLM (en)」预设改为 `/api/v1` 上的原生 Responses（shell 命令式编辑、不发 freeform apply_patch），并镜像官方模型列表：glm-5.3（1M 窗口，low/high/max，默认 max），国内站另有 glm-5-turbo；glm-5.2 与 `none` 档被删。一条域名回退让「保存时还是 Chat 格式、但 Base URL 已是原生 Responses」的行无需重存即拿到 Responses catalog（Chat 端点路径排除在外）；厂商域名按 DNS 标签边界匹配，`z.ai` 不再误捕 `xyz.ai`；`bigmodel.cn`、`z.ai` 与 `glm` 前缀加入 Codex 托管 web search 的拒绝清单。（#6957，修复 [#6944](https://github.com/farion1231/cc-switch/issues/6944)）
+
+#### Codex resume 之后用量不再停摆
+
+线程被回退（revert）时，Codex 会新建一个带两个 UUID 的替换 rollout 文件（`rollout-<ts>-<threadId>_<rolloutId>.jsonl`），此后该线程的每次 resume 都追加到它；文件的根元数据保留原线程 id，而导入器的一致性校验只拿它对比文件名末尾的 UUID——这类文件被永久搁置，用户 resume 该线程起用量就静默停止累计（现场复现：152 条未导入的 token 计数事件，搁置警告每 60 秒一轮重复）。校验现在也接受与双段文件名前置 UUID 匹配的元数据 id；单 UUID 文件名维持严格校验，从未回退过的普通会话从来不受影响。这类文件存入的会话 id 改为前置的逻辑线程 id——会话列表以它为键——而不是末尾的 rollout id；末尾 id 继续充当 request id 前缀，避免同一线程多个分段的去重键碰撞。（[#6905](https://github.com/farion1231/cc-switch/pull/6905)，修复 [#6904](https://github.com/farion1231/cc-switch/issues/6904)）
+
+#### 前缀缓存不再每轮被打断
+
+Anthropic 转 OpenAI 的转换把所有 system 消息合并到对话开头，而 Claude Code 每轮都把 `<total_tokens>` 元数据作为一条中途 system 消息注入——合并让前缀每轮都变，上游的 radix 前缀缓存形同虚设。顶层 system 块仍合并为一条开头的 system 消息（跨轮字节稳定），消息列表里的 system 消息现在留在原位、不合并不重排。报告者在 DeepSeek、GLM、Kimi 一类 OpenAI 格式端点上实测，命中率曾因此从 99% 掉到 20%。（[#6941](https://github.com/farion1231/cc-switch/pull/6941)，修复 [#6789](https://github.com/farion1231/cc-switch/issues/6789)）
+
+#### Hermes「最新版本」改读 GitHub Releases
+
+工具面板此前问的是 PyPI，而上游 0.19.0（2026-07-20）之后就停止在那里发布、只走 GitHub Releases——用户看到的「最新 0.19.0」永远不变、常常低于已装版本，升级按钮从不出现。PyPI 从来不是 cc-switch 安装或升级 Hermes 的渠道（官方安装脚本与 `hermes update` 都走 git），探测现在先查 GitHub Releases，仅在 GitHub 不可达或限流时回退 PyPI。语义化版本从发布名（`Hermes Agent v0.21.0 (v2026.8.31)`）解析，因为 tag 是日历版本；两条路径都拒绝日历数字，`2026.8.31` 永远不会被报成一个永久的「有更新」；本地版本已领先时隐藏 PyPI 回退值；两个探测都加 15 秒超时，不再沿用共享客户端的 600 秒——那曾在 `api.github.com` 挂起时卡住 Hermes 卡片与刷新/全部升级按钮。（关联 [#6475](https://github.com/farion1231/cc-switch/issues/6475)、[#6618](https://github.com/farion1231/cc-switch/issues/6618)、[#7033](https://github.com/farion1231/cc-switch/issues/7033)；取代 [#6621](https://github.com/farion1231/cc-switch/pull/6621)）
+
+#### 接管模式下 Claude Code 的模型菜单出现 Opus 5 与 Sonnet 5
+
+接管写给 Claude Code 的稳定角色别名从 `claude-opus-4-8`/`claude-sonnet-4-6` 换成 `claude-opus-5`/`claude-sonnet-5`，与早已迁移的 Claude Desktop 默认路由和预设默认值对齐。`opus-5` 加入自适应思考分类器，在模型映射之前按客户端别名运行的 Bedrock 思考优化器继续发自适应思考而不是已被移除的 `budget_tokens`。路由不受影响——代理按角色关键字映射客户端别名——别名在代理下次启动时自动改写。（[#5882](https://github.com/farion1231/cc-switch/pull/5882)，修复 [#5876](https://github.com/farion1231/cc-switch/issues/5876)）
+
+#### PPIO、JieKou 与 Novita 的 Claude 预设能「获取模型」了
+
+三家都在一个路径下提供 Anthropic 兼容 API、却把 OpenAI 兼容的模型列表挂在 `/openai/v1`，从 Base URL 推导的每个候选都 404，模型发现从未成功过。三张预设现在各钉一条显式的模型列表地址，表单在获取时按卡片的 Base URL 反查取用——仍在预设默认地址上的存量卡无需任何改动即生效；JieKou 一条把错误行为锁死的测试被删除。（[#6870](https://github.com/farion1231/cc-switch/pull/6870) 及后续）
+
+#### 杂项修复
+
+- **Claude 会话列表不再出现幽灵「journal」会话**：Claude Code 的 workflow 功能把 `journal.jsonl` 写进会话目录，扫描器只排除了 `agent-*` 文件，每个 journal 都被解析成一条标题为「journal」的空会话。（[#6043](https://github.com/farion1231/cc-switch/pull/6043)，修复 [#6042](https://github.com/farion1231/cc-switch/issues/6042)）
+- **检查更新失败时显示真实原因**：更新插件以纯字符串拒绝，`instanceof Error` 判断永远不成立，真正的失败原因（网络错误、限流、清单畸形）被通用兜底文案替换、还停在一个无人读取的状态里；恢复出的信息现在直达失败提示。（[#6482](https://github.com/farion1231/cc-switch/pull/6482)）
+- **代理地址脱敏不再因多字节字符崩溃**：代理 URL 解析失败时的回退分支在第 20 字节硬切，多字节 UTF-8 字符跨过该偏移就 panic——往全局代理地址里粘一段中文即可触发；切点现在对齐字符边界。（[#6908](https://github.com/farion1231/cc-switch/pull/6908)）
+- **Pi 的重复键错误与折叠标签显示文案而不是原始 key**：Pi 后端的重复键错误映射到的翻译键在四种语言里都不存在，思考映射折叠按钮的无障碍标签同样缺失；两者补齐 zh/en/ja/zh-TW 并由语言覆盖测试锁定。（[#6768](https://github.com/farion1231/cc-switch/pull/6768)）
+- **屏幕阅读器能读出纯图标控件的名称**：仅图标的返回按钮、顶栏本地路由开关、项目切换弹层、Claude JSON 编辑器与已有 Skills 的导入复选框现在都带程序化名称，尽量复用既有文案，另加两条短标签。（[#7049](https://github.com/farion1231/cc-switch/pull/7049)，修复 [#7048](https://github.com/farion1231/cc-switch/issues/7048)）
+- **用量趋势图 Token 轴改用本地化紧凑格式**：刻度此前固定为「数值/1000 加 k」，大数据日显示成 `1500k`；现在按语言环境的紧凑记法（`1.5M`）显示，轴宽相应调整。（[#7016](https://github.com/farion1231/cc-switch/pull/7016)）
+- **定价来源下拉框放得下本地化文案**：用量成本设置表里的定价模型来源选择器只留约 70 px 给标签，英文与日文需要约 107 px；已加宽并与相邻输入框对齐高度。（[#6980](https://github.com/farion1231/cc-switch/pull/6980)）
+
+---
+
+### 升级提醒
+
+#### 本版不含数据库迁移
+
+schema 版本保持 18，不产生迁移备份。
+
+#### 预设改动只影响新建的供应商
+
+存量卡片保存的是创建时的快照。本版涉及：智谱 GLM 预设（存量智谱 Codex 卡仍指向 Chat 端点、直连依旧失败——重新导入预设即可拿到 `/api/v1`）、腾讯 Pi 预设的思考控制（重新导入才有真正生效的「off」与修正后的 Kimi 档位）、grok-4.5 的 xhigh 档、以及腾讯预设里 `minimax-m2.5` 的移除。PPIO、JieKou 与 Novita 的模型列表地址是例外：表单按卡片的 Base URL 反查预设，仍在默认地址上的存量卡无需改动。
+
+#### Codex catalog 类修复在下一次切换供应商时生效
+
+catalog 文件在切换时重新生成：DeepSeek 的 MCP 可见性（[#6653](https://github.com/farion1231/cc-switch/pull/6653)）、`supports_parallel_tool_calls` 回填（[#6666](https://github.com/farion1231/cc-switch/pull/6666)）、视觉模态（[#6750](https://github.com/farion1231/cc-switch/pull/6750)）与 glm-5.3 纯文本条目（[#6851](https://github.com/farion1231/cc-switch/pull/6851)）都属此类。在受影响的卡上切走再切回一次即可。
+
+#### Codex OAuth 接管现在自报 Codex 0.153.4
+
+无需配置。若你绕过 cc-switch 直接使用 Codex CLI，GPT-6 需要你本机的 Codex ≥ 0.153.0。
+
+#### 认证中心里已存在的 ChatGPT 账号不能再重复添加
+
+同一用户、同一 workspace 再次添加会被拒绝，请改用该账号行上的「重新登录」。同一 workspace 的不同用户仍可并存。
+
+#### Grok OAuth 卡在下一次切换时自愈
+
+`requires_openai_auth` 标志会被回填为 `false`，无需重新添加。
+
+#### 接管写入时 `requires_openai_auth` 按 Codex 的凭据存储覆盖
+
+活跃第三方表上的该标志现在在每次接管写入时按 Codex 会观察到的登录状态覆盖：file 存储（默认）跟随 `auth.json` 是否持有官方登录；ephemeral 存储下 Codex 每次启动都是未登录，标志写为 `false`；keyring 与 auto 存储无法从磁盘读出登录状态，卡上原值保持不动。
+
+#### 被 resume 停摆的用量会在下一次扫描时补入
+
+补入的条目按实际发生日期入账，那几天的看板总数可能跳升。回退过的线程从现在起会话 id 记录正确；此前按 rollout id 写入的行不做改写。
+
+#### 定价
+
+Sonnet 5 的守卫只纠正仍是 seed 值 3/15/0.30/3.75 的行；自定义过的 Sonnet 5 行不动，历史 Sonnet 5 费用*不会*重算——费用在记录时冻结，回填只补按 $0 记录的行（Fable 5.1、GLM-5.3、GLM-5.3 Flash、GPT-6 Astra 与 Gemini 3.8 Flash 的历史因此*会*被补价）。MiniMax M2 系列新增此前为零的缓存写价格，这部分费用往后会上升。GPT-5.6 的促销价（至少到 2026-11-21）与 Gemini 3.6/3.8 Flash 的介绍价（到 2026-12-31，之后 $1.50/$7.50/$0.15）都有到期日，而定价表表达不了日期，后续版本会重新 seed。
+
+#### 经 Codex 路由的图片生成按 token 计数、暂无内置定价
+
+图片模型还没有定价行，在补上之前其费用显示为 $0。
+
+#### Hermes 版本探测降级时显示「未知」
+
+GitHub 不可达且 PyPI 回退值低于你已安装的版本时，显示「未知」而不是误导性的「最新 0.19.0」。
+
+#### 中途 system 消息现在原位转发
+
+发往 OpenAI 格式上游的中途 system 消息不再被合并到开头，这正是前缀缓存命中恢复的原因，也与 Claude Code 原生发送的形状一致。两点连带影响：升级后第一轮请求的前缀字节会变化，缓存一次性重冷后即恢复；而要求 system 消息必须全部位于开头的严格后端（[#1881](https://github.com/farion1231/cc-switch/issues/1881) 里 Nvidia、Qwen 一类端点，报 `System message must be at the beginning`）在中途 system 消息出现时会重新 400——原来的合并逻辑正是为它们引入的，前缀稳定与严格后端校验在同一个全局行为里无法兼得。如果你的上游属于后者，请在 issue 里反馈。
+
+---
+
+### 风险提示
+
+#### 沿用的提示
+
+**xAI Grok OAuth 登录**：复用官方 Grok CLI 的公开 OAuth 客户端身份，使用可能导致账号被限制或封禁——详见 [v3.18.0 release notes](/zh/changelog/3.18.0#风险提示)。
+
+**Codex OAuth 反向代理**：使用 ChatGPT 订阅的 Codex OAuth 反代可能违反 OpenAI 服务条款，详情见 [v3.13.0 release notes](/zh/changelog/3.13.0#风险提示)。
+
+**SuperGrok 配额查询**：供应商卡片的配额展示依赖 grok.com 的非公开计费端点，xAI 调整接口后可能失效——详见 [v3.19.0 release notes](/zh/changelog/3.19.0#风险提示)。
+
+**第三方供应商路由**：通过 CC Switch 本地代理把 Codex、Claude Desktop 或 Grok Build 的请求转换并转发到第三方供应商时，各供应商对计费、合规与数据留存的约束不同，请在使用前阅读目标供应商的服务条款。
+
+用户启用上述功能即表示自行承担相关风险。CC Switch 不对因使用这些功能而导致的任何账号限制、警告或服务暂停承担责任。
+
+---
+
+### 致谢
+
+本版 52 个提交里有 36 个来自 26 位外部贡献者。
+
+#### 代码贡献
+
+- 感谢 @loocor：Grok 经 xAI 原生 Responses 的整条主线（[#6917](https://github.com/farion1231/cc-switch/pull/6917)）——工具 schema 折叠与整数浮点改写、`agent_message` 邮箱项改写、子智能体未知型号映射、闸门收敛与 CI 清理，六个提交。
+- 感谢 @szupzj18：三条 Codex catalog 修复——DeepSeek 的 MCP 可见性（[#6653](https://github.com/farion1231/cc-switch/pull/6653)）、`supports_parallel_tool_calls` 回填（[#6666](https://github.com/farion1231/cc-switch/pull/6666)）与未知型号的输入模态（[#6750](https://github.com/farion1231/cc-switch/pull/6750)）；Moonshot `$ref` 兄弟键的修法他也更早在 [#6627](https://github.com/farion1231/cc-switch/pull/6627) 尝试过。
+- 感谢 @yovinchen：GPT-6 Astra、GLM-5.3 Flash 与 Gemini 3.8 Flash 三条定价（[#7162](https://github.com/farion1231/cc-switch/pull/7162)、[#7163](https://github.com/farion1231/cc-switch/pull/7163)、[#7164](https://github.com/farion1231/cc-switch/pull/7164)）。
+- 感谢 @thisTom：Codex 图片生成端点透传（[#7036](https://github.com/farion1231/cc-switch/pull/7036)）与用量趋势图的紧凑轴标签（[#7016](https://github.com/farion1231/cc-switch/pull/7016)）；同一透传 @Komikawayi 更早在 [#5484](https://github.com/farion1231/cc-switch/pull/5484) 提出过修法。
+- 感谢 @zmq1121：腾讯云 Token Plan 六产品×六应用的预设（[#7011](https://github.com/farion1231/cc-switch/pull/7011)），端点与思考开关全部真实密钥实测。
+- 感谢 @2691176649-cloud：Pi 的腾讯 TokenHub / Token Plan 八条预设与思考控制声明（[#7159](https://github.com/farion1231/cc-switch/pull/7159)）。
+- 感谢 @SaladDay：重复托管账号的拒绝（[#7061](https://github.com/farion1231/cc-switch/pull/7061)），拆自他自己报告的 [#7055](https://github.com/farion1231/cc-switch/issues/7055)。
+- 感谢 @RemindZ：Codex OAuth 客户端身份对齐 GPT-6（[#7132](https://github.com/farion1231/cc-switch/pull/7132)），首次投稿。
+- 感谢 @liqimore 与 @li-keli：Codex OAuth 并行工具调用（[#7024](https://github.com/farion1231/cc-switch/pull/7024)，接力自 [#5722](https://github.com/farion1231/cc-switch/pull/5722)；@li-keli 同时是 [#5719](https://github.com/farion1231/cc-switch/issues/5719) 的报告者）。
+- 感谢 @czhmartinez：Moonshot/Kimi 的 `$ref` 兄弟键改写（[#6863](https://github.com/farion1231/cc-switch/pull/6863)）；同一问题 @jacker-son（[#5125](https://github.com/farion1231/cc-switch/pull/5125)）与 loulanyue（#6869）也各自提出过修法。
+- 感谢 loulanyue：智谱 GLM 预设改指官方 Responses 端点（#6957）。
+- 感谢 @htyvista：中途 system 消息原位保留、前缀缓存修复（[#6941](https://github.com/farion1231/cc-switch/pull/6941)，修复 [#6789](https://github.com/farion1231/cc-switch/issues/6789)）。
+- 感谢 @3351163616：Codex resume 后用量停摆的修复（[#6905](https://github.com/farion1231/cc-switch/pull/6905)），自报自修 [#6904](https://github.com/farion1231/cc-switch/issues/6904)。
+- 感谢 @Eureka0w0v0：Fable 5.1 / Mythos 5.1 定价与 Sonnet 5 改回标准价（[#7051](https://github.com/farion1231/cc-switch/pull/7051)），自报自修 [#7050](https://github.com/farion1231/cc-switch/issues/7050)，首次投稿。
+- 感谢 @nightcityblade：接管别名升级到 Opus 5 / Sonnet 5（[#5882](https://github.com/farion1231/cc-switch/pull/5882)）。
+- 感谢 @hu-miao：PPIO 扩展到 Pi 与 Claude 预设的模型列表地址（[#6870](https://github.com/farion1231/cc-switch/pull/6870)），自报自修 [#6868](https://github.com/farion1231/cc-switch/issues/6868)。
+- 感谢 @arichyx：GLM-5.3 定价（[#6591](https://github.com/farion1231/cc-switch/pull/6591)）。
+- 感谢 @teddyli18000：glm-5.3 纯文本标记（[#6851](https://github.com/farion1231/cc-switch/pull/6851)），首次投稿。
+- 感谢 @jintonglu6688：无障碍名称补齐（[#7049](https://github.com/farion1231/cc-switch/pull/7049)），自报自修 [#7048](https://github.com/farion1231/cc-switch/issues/7048)，首次投稿。
+- 感谢 @SailingLoong：检查更新失败显示真实原因（[#6482](https://github.com/farion1231/cc-switch/pull/6482)），首次投稿；Hermes 版本源的问题也由他在 [#6621](https://github.com/farion1231/cc-switch/pull/6621) 率先提出修法。
+- 感谢 @nasymonk：幽灵「journal」会话（[#6043](https://github.com/farion1231/cc-switch/pull/6043)），自报自修 [#6042](https://github.com/farion1231/cc-switch/issues/6042)。
+- 感谢 @xu-kai-quan：代理地址脱敏的多字节 panic（[#6908](https://github.com/farion1231/cc-switch/pull/6908)）。
+- 感谢 @ntdatt812：Pi 缺失的两条翻译键（[#6768](https://github.com/farion1231/cc-switch/pull/6768)）。
+- 感谢 @Chang-Yo：定价来源下拉框宽度（[#6980](https://github.com/farion1231/cc-switch/pull/6980)）。
+- 感谢 @wanwan-doudou：测试隔离 `LOCALAPPDATA`（[#6078](https://github.com/farion1231/cc-switch/pull/6078)），自报自修 [#6077](https://github.com/farion1231/cc-switch/issues/6077)。
+- 感谢 @why19970628：README 目录树的翻译路径修正（[#6100](https://github.com/farion1231/cc-switch/pull/6100)）。
+
+#### 问题反馈
+
+- 感谢 @elizax 在 [#6789](https://github.com/farion1231/cc-switch/issues/6789) 用实测数据（命中率 99% → 20%）定位到中途 system 消息被合并——本版前缀缓存修复的起点。
+- 感谢 @jonneyz：xAI 拒收根级 `oneOf`/`anyOf` 工具 schema（[#6815](https://github.com/farion1231/cc-switch/issues/6815)）与 Moonshot `$ref` 兄弟键 400（[#6867](https://github.com/farion1231/cc-switch/issues/6867)）两份精确到字段的报告。
+- 感谢 Moonshot 工具 schema 400 家族的其他报告者：@Cinnamanthus（[#6614](https://github.com/farion1231/cc-switch/issues/6614)，附已验证的修法）、@IchenDEV（[#6834](https://github.com/farion1231/cc-switch/issues/6834)）、@ghostman-git（[#6861](https://github.com/farion1231/cc-switch/issues/6861)）、@dolami0（[#6976](https://github.com/farion1231/cc-switch/issues/6976)）、@RN0817（[#7000](https://github.com/farion1231/cc-switch/issues/7000)）与 @Lw2xy（[#7028](https://github.com/farion1231/cc-switch/issues/7028)）。
+- 感谢 @loveyang2012 报告智谱 Codex 直连的 `unknown variant custom`（[#6944](https://github.com/farion1231/cc-switch/issues/6944)）。
+- 感谢 @vdiskg 报告 DeepSeek 预设下 MCP 工具不可用（[#6647](https://github.com/farion1231/cc-switch/issues/6647)），以及在评论里给出源码级根因与已验证修法的 @wqzhellohhwy。
+- 感谢 @OhtoAi583 与 @dydydd 报告 catalog 缺 `supports_parallel_tool_calls`（[#6661](https://github.com/farion1231/cc-switch/issues/6661)、[#6709](https://github.com/farion1231/cc-switch/issues/6709)）；@dydydd 还在 [#6710](https://github.com/farion1231/cc-switch/pull/6710) 提交了同样的修法，@zmzwynzj 在 #6661 补充了 Windows 复现、证明问题不限于 Kimi 或 macOS。
+- 感谢 @deadman49 报告 DeepSeek 视觉型号无法读图（[#6725](https://github.com/farion1231/cc-switch/issues/6725)）。
+- 感谢 @zhou0722jack 报告 GPT-6 无法使用（[#7129](https://github.com/farion1231/cc-switch/issues/7129)），以及在同一 issue 里贴出 400 原文并验证修复的 @AiIsBetter。
+- 感谢 @Hewitt-Qiao 与 @JerryChen001 报告本地路由下图片生成 404（[#5429](https://github.com/farion1231/cc-switch/issues/5429)、[#6745](https://github.com/farion1231/cc-switch/issues/6745)）。
+- 感谢 @SHIZHENGYE 报告接管下无法选到 Opus 5（[#5876](https://github.com/farion1231/cc-switch/issues/5876)）。
+- 感谢 @matthewdm0816 与 @lagolas 在 [#6904](https://github.com/farion1231/cc-switch/issues/6904) 同报 resume 后用量停摆——前者「切到 1M 上下文后 resume」是同一根因的另一形态。
+- 感谢 @FlyinheartLee、@t5yhuangxing 与 @Tsuki-hash 报告 Hermes 最新版本停在 0.19.0（[#6475](https://github.com/farion1231/cc-switch/issues/6475)、[#6618](https://github.com/farion1231/cc-switch/issues/6618)、[#7033](https://github.com/farion1231/cc-switch/issues/7033)）。
+- 感谢 @QianWen-AI-Platform 提出 QwenCloud 预设需求（[#6214](https://github.com/farion1231/cc-switch/issues/6214)）。
+
+---
+
+### 下载与安装
+
+访问 [Releases](https://github.com/farion1231/cc-switch/releases/latest) 下载对应版本，或从官网 [ccswitch.io](https://ccswitch.io) 获取（下载经 Cloudflare 边缘节点分发，不依赖 GitHub 可达）。
+
+#### 系统要求
+
+| 系统    | 最低版本                   | 架构                                |
+| ------- | -------------------------- | ----------------------------------- |
+| Windows | Windows 10 及以上          | x64 / ARM64                         |
+| macOS   | macOS 12 (Monterey) 及以上 | Intel (x64) / Apple Silicon (arm64) |
+| Linux   | 见下表                     | x64 / ARM64                         |
+
+#### Windows
+
+| 文件                                     | 说明                                |
+| ---------------------------------------- | ----------------------------------- |
+| `CC-Switch-v3.20.2-Windows.msi`          | **推荐** - MSI 安装包，支持自动更新 |
+| `CC-Switch-v3.20.2-Windows-Portable.zip` | 便携版，解压即用，不写入注册表      |
+
+Windows ARM64 设备请选择文件名中带 `arm64` 标识的对应制品。
+
+#### macOS
+
+| 文件                             | 说明                                          |
+| -------------------------------- | --------------------------------------------- |
+| `CC-Switch-v3.20.2-macOS.dmg`    | **推荐** - DMG 安装包，拖入 Applications 即可 |
+| `CC-Switch-v3.20.2-macOS.zip`    | 解压后拖入 Applications，Universal Binary     |
+| `CC-Switch-v3.20.2-macOS.tar.gz` | 用于 Homebrew 安装和自动更新                  |
+
+Homebrew 安装：
+
+```bash
+brew install --cask cc-switch
+```
+
+更新：
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux 资产同时提供 **x86_64** 和 **ARM64**（`aarch64`）两种架构。资产文件名中包含架构标识，请按你机器的 `uname -m` 输出选择对应版本：
+
+- `CC-Switch-v3.20.2-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.2-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| 发行版                                  | 推荐格式    | 安装方式                                                               |
+| --------------------------------------- | ----------- | ---------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`      | `sudo dpkg -i CC-Switch-*.deb` 或 `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`      | `sudo rpm -i CC-Switch-*.rpm` 或 `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`      | `sudo zypper install ./CC-Switch-*.rpm`                                |
+| Arch Linux / Manjaro                    | `.AppImage` | 添加执行权限后直接运行，或使用 AUR                                     |
+| 其他发行版 / 不确定                     | `.AppImage` | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`              |
+
+## [3.20.1] - 2026-08-28
+
+> 这一版围绕 Codex 补两笔硬账：**适配 Codex CLI 0.149**——第三方切换 401「Missing API key」的根治：切换改为 config-only，密钥随供应商表走、不再进 `auth.json`，一族让 0.149 拒绝启动的历史配置形态也在每次切换时自动修复；**同一 ChatGPT Team workspace 的多个账号不再互相覆盖**——存量托管账号需逐个重新登录一次（见升级提醒）。数据可靠性另有三条硬修复：供应商编辑必达 live 配置、Codex 编辑框不再串染别张卡的密钥、恢复备份不再清空手写的 prompt 文件。用量侧新增「自动扫描会话记录」开关，大会话文件的扫描从秒级降到毫秒级。本版**包含数据库迁移（v17 → v18）**，升级前自动备份，降级需还原备份。
+
+### 重点内容：你现在可以
+
+- **在 Codex CLI ≥ 0.149 上正常切换第三方供应商**（[#6744](https://github.com/farion1231/cc-switch/issues/6744)）：0.149 起自定义 provider 不再从 `auth.json` 继承环境凭据，以旧默认方式（密钥只写 `auth.json`）完成的第三方切换一律 401。切换现已整体改为 config-only——密钥写进供应商自己的 `[model_providers.*]` 表（`experimental_bearer_token`，Codex 0.48 起支持），`auth.json` 回归纯粹的官方 ChatGPT 登录文件。
+- **让同一 Team workspace 的多个 ChatGPT 账号安全共存**（[#6780](https://github.com/farion1231/cc-switch/pull/6780)，修复 [#2245](https://github.com/farion1231/cc-switch/issues/2245)）：此前账号以 workspace ID 为主键，同一 Team 两名成员会合并成一条记录、后登录者静默覆盖前者的令牌。现在同 workspace 登录并存为独立账号行，接管下的请求还会校验账号一致性——绝不把账单记到另一名成员头上。
+- **相信「保存成功」四个字**（[#6779](https://github.com/farion1231/cc-switch/pull/6779)）：崩溃残留的接管备份行曾让活跃供应商的编辑只更新数据库、真正的配置文件纹丝不动。所有权判定已重建，编辑必达 live 配置。
+- **在编辑框里看到这张卡自己的密钥**（[#6534](https://github.com/farion1231/cc-switch/pull/6534)，修复 [#6414](https://github.com/farion1231/cc-switch/issues/6414)）：共享的 `auth.json` 没有供应商身份，编辑活跃 Codex 供应商可能显示——保存后固化——另一张卡遗留的 key，同 base URL 的卡密钥互相趋同、报「model not found」。表单现在从 `config.toml` 里该卡自己的 bearer token 重建密钥。
+- **放心恢复备份**（[#6810](https://github.com/farion1231/cc-switch/pull/6810)，修复 [#6778](https://github.com/farion1231/cc-switch/issues/6778)）：云端快照没有任何已启用 prompt 时，WebDAV/S3 下载或备份导入不再把本地手写的 `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `SOUL.md` 清成空文件。
+- **关掉后台会话扫描**：用量页新增「自动扫描会话记录」开关，关闭即手动模式——仅在点击「立即同步」时扫描本地会话记录；代理接管的请求记账实时落库、与会话文件无关，照常记录。
+- **看到 OpenCode Go 的订阅额度**：用量脚本的 Token Plan 查询现在识别 OpenCode Go，5 小时 / 周 / 月三个窗口的用量百分比与重置时间进入用量卡与托盘。
+- **在 macOS 上把终端设为 Otty**（[#6620](https://github.com/farion1231/cc-switch/pull/6620)）：会话恢复、供应商终端与工具命令三处入口都可选。
+- **让大会话文件的扫描从秒级降到毫秒级**：Claude 会话日志改为字节游标增量扫描，12 MB 活跃会话文件从整读 6.04 秒降到增量 9.3 毫秒。
+
+---
+
+### 使用攻略
+
+- **[添加供应商](/zh/docs?section=providers&item=add)**：Codex config-only 切换后的供应商管理入口。
+- **[用量统计](/zh/docs?section=proxy&item=usage)**：会话扫描开关与 Token Plan 额度查询的口径。
+
+---
+
+> [!WARNING]
+>
+> ## 唯一官方渠道声明（请务必阅读）
+>
+> CC Switch 是**完全免费、开源**的桌面应用，**不会向用户收取任何费用**。请仅通过下列官方渠道获取本软件：
+>
+> | 类别     | 唯一官方                                                                       |
+> | -------- | ------------------------------------------------------------------------------ |
+> | 官网     | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | 源码     | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | 下载     | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | 作者     | **[@farion1231](https://github.com/farion1231)**                               |
+> | 举报山寨 | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **任何向你收费、要求充值、或索取登录凭据的"CC Switch"网站或客户端均为假冒**。如果你被诱导支付了费用，请立即停止操作并通过 GitHub Issues 反馈。
+
+---
+
+### 概览
+
+这一版的主线在 Codex，起点是一次上游的兼容性断裂：Codex CLI 0.149 收紧了凭据继承，自定义 provider 不再读取 `auth.json` 里的环境凭据，以旧默认方式写入的第三方切换全部 401。CC Switch 的应对不是打补丁，而是把第三方切换整个改成 config-only——密钥随供应商自己的配置表走，`auth.json` 回归纯粹的官方 ChatGPT 登录文件；同时一族让 0.149 拒绝加载的历史配置形态（占用保留 id 的旧表、缺 `name` 的表、顶层 `openai_base_url` 旧式路由）在每次切换与接管投影时自动修复，并新增写前预检——0.149 无法加载的组合会被点名拒绝，而不是「切换成功」之后 Codex 起不来。
+
+第二条主线是账号与数据安全：同一 ChatGPT Team workspace 的成员在认证中心不再互相覆盖（存量托管账号需重登一次）；供应商编辑保证必达 live 配置；Codex 编辑框不再串染别张卡的密钥；恢复备份不再清空手写的 prompt 文件。用量侧，会话扫描获得自动/手动开关与字节游标增量扫描（6.04 秒 → 9.3 毫秒），并顺手修掉三个 Claude 会话记账的正确性缺陷——这也是本版唯一数据库迁移（v17 → v18）的由来。
+
+**发布日期**：2026-08-28
+
+**更新规模**：26 commits | 66 files changed | +7,474 / -1,000 lines
+
+---
+
+### 新功能
+
+#### 会话记录扫描：自动/手动模式
+
+用量页新增「自动扫描会话记录」卡片与开关（默认开启，升级后行为不变）。关闭后停止一切后台会话扫描——包括启动时的首轮——并出现「立即同步」按钮作为手动入口，完成后以提示显示导入条数、扫描文件数与错误计数。代理接管的请求记账是实时落库、从不读会话文件，无论开关如何都照常记录；启动时的成本回填只修数据库既有行，手动模式下也照常执行。
+
+#### OpenCode Go 订阅用量
+
+用量脚本的 Token Plan 查询现在识别 OpenCode Go，在用量卡与托盘显示 5 小时 / 周 / 月三个窗口的用量百分比与重置时间，复用既有的配额层级展示。该端点只认 Bearer 认证（与推理侧只认 `x-api-key` 恰好相反）；密钥有效但未订阅 Go 计划时显示明确的提示（HTTP 403）而不是笼统的认证失败，零用量窗口会丢弃上游的占位重置时间，无法识别的响应形状报错而不是空卡。在 Claude Code、Claude Desktop、Codex、OpenCode 与 Pi 新添加的 OpenCode Go 供应商自动启用查询；OpenCode Zen 按量付费刻意不覆盖——该计划上游没有用量 API。
+
+#### Otty 终端支持（macOS）
+
+「Otty」加入 macOS 终端选择器，覆盖会话恢复、供应商终端与工具命令三处入口。启动时先尝试经 Otty CLI 在既有窗口开新标签页，再退到新开 Otty 窗口；供应商终端与工具命令在失败时进一步回退到 Terminal.app，而会话恢复失败则直接报错——Otty CLI 缺失时附明确的安装提示——并把命令复制到剪贴板。CLI 探测覆盖应用包（系统与用户级）、Homebrew 路径与 PATH。用户手册的 macOS 终端表格也顺带修正——Kaku 与 Warp 早已支持却漏在表外。（[#6620](https://github.com/farion1231/cc-switch/pull/6620)）
+
+---
+
+### 变更
+
+#### Codex 第三方切换改为 config-only
+
+切换到第三方 Codex 供应商时，密钥现在写进该供应商自己的 `[model_providers.*]` 表（`experimental_bearer_token` 字段，Codex 0.48 起支持），**不再写进 `auth.json`**——它回归纯粹的官方 ChatGPT 登录文件。背景是 Codex 0.149 停止让自定义 provider 从 `auth.json` 继承环境凭据，以旧默认方式（密钥只写 `auth.json`）完成的第三方切换从此 401。
+
+「非接管切换时保留官方登录」开关随之只剩一个含义：开启时官方 ChatGPT 登录在第三方切换中完全不被触碰；关闭时**删除** `auth.json` 而不是用 API 密钥覆盖它（删除失败会弹出警告，提示官方登录仍留在 Codex 配置目录中）。两道安全闸现在在**每次第三方切换**都执行、不再只限保留模式：有密钥却没有任何 provider 表可以承载，或没有密钥却会回退到官方登录（`requires_openai_auth = true` 且无自有凭据，或裸的顶层 `openai_base_url` 路由），都会被点名拒绝——包括配置为空的第三方卡，它们此前一直静默搭乘 `auth.json`。活跃的带密钥第三方表上的 `requires_openai_auth` 会在每次直接切换时按保留开关重新戳记，让 Codex 的登录界面与磁盘上的实际状态一致。（[#6744](https://github.com/farion1231/cc-switch/issues/6744)、[#6746](https://github.com/farion1231/cc-switch/pull/6746)）
+
+#### TeamoRouter 预设迁至 teamorouter.cn
+
+八个应用的预设全部指向 `api.teamorouter.cn`，旧 `.com` 端点在 Claude Code、Claude Desktop、Codex 与 Grok Build 上注册为可选择、可测速的后备端点。已保存的存量 TeamoRouter 供应商保持各自原有的 Base URL 不变。
+
+---
+
+### 修复
+
+#### 同一 workspace 的 ChatGPT 账号不再在认证中心合并
+
+托管的 Codex OAuth 账号此前以 `chatgpt_account_id` 为主键——它标识的是 ChatGPT workspace 而不是人：同一 Team workspace 的两名成员会坍缩成一条记录，后登录者静默覆盖前者的令牌，供应商绑定跟着指向最后登录的人。账号现在以本地身份建键、保留 OIDC subject 作为用户身份凭证，同 workspace 登录并存为独立账号行。经接管路由的请求会额外对照绑定账号的 live 令牌校验：仍持有另一名成员登录态的 Codex 会话得到「请重启 Codex」的明确报错，而不是以错误身份被转发；外发的 workspace 请求头一律来自账号绑定而不是客户端自报。收养 CLI 轮转过的刷新令牌、以及移除账号时删除 `auth.json`，现在都要求可证明的所有权——CC Switch 不再可能收养或删除同 workspace 另一名成员的登录。每条账号行提供就地「重新登录」（绑定保留）；取消或被取代的设备登录会在 CC Switch 内部丢弃等待中的流程——被放弃的浏览器授权无法在几分钟后被提交、悄悄覆盖账号。不是合法 JWT 形状的 id_token 不再产生任何身份——畸形或截断的令牌永远无法冒充用户。（[#6780](https://github.com/farion1231/cc-switch/pull/6780)、[#6831](https://github.com/farion1231/cc-switch/pull/6831)，修复 [#2245](https://github.com/farion1231/cc-switch/issues/2245)）
+
+#### Codex 0.149 兼容修复族：存量配置不再让 Codex 拒绝启动
+
+一族让 Codex 0.149 拒绝加载的配置形态——用户侧表现为「CC Switch 显示切换成功，Codex 却起不来」——现在在每次供应商切换与接管投影时自动修复。具体包括：早期接管投影写下的 `[model_providers.openai]` / `.ollama` / `.lmstudio` 遗留表（覆盖保留 id 会导致校验失败）被无损改名为 CC Switch 自有 id 并归一为可加载形状；没有 `name` 的 provider 表被回填（0.149 会因任何一张缺名表拒绝整份配置——Bedrock 表刻意保持无名，命名会破坏其内置合并）；携带可用密钥的旧式顶层 `openai_base_url` 路由被迁移成正规的自定义 provider 表（无密钥的这类路由会被切换时的安全闸拒绝）；新的写前预检对 0.149 无法加载的字段组合点名拒绝，而不是写出去当作「切换成功」。接管路由指向内置 `openai` provider 的卡改用官方支持的顶层字段而不是制造保留表，指向 `ollama` / `lmstudio` 的卡接管时显式报错。保留 id 清单与上游完全一致（大小写敏感；补入 `amazon-bedrock-runtime`，旧的 `oss` / `ollama-chat` 按普通自定义 provider 对待——它们的密钥终于能到达自己的表），内联的 `model_providers` 表也能接到注入的令牌，而不是留下一个死的顶层字段。
+
+#### 被拒绝的切换不再腐坏被拒的那张卡
+
+live 写入校验现在作为预检、在当前供应商指针移动之前执行。此前写入层的拒绝发生在 `current` 已提交之后——下一次切换会把旧的 live 配置回填进这张被拒供应商的已存设置。
+
+#### 供应商编辑必达 live 配置文件
+
+崩溃或恢复失败残留的接管备份行，会让活跃供应商的保存（Claude Desktop 除外）走上接管路径——只更新数据库与备份行，真正的配置文件无限期保持旧端点旧密钥。所有权现在由单一谓词裁定，要求接管的实际证据（live 文件中有占位符，或代理已启用且运行中且有备份行，或切换过程持有 per-app 锁且有备份行）；过期的备份行被刷新为与所编辑供应商一致，而不是劫持写入。统一供应商保存现在还会把每个生成的子配置重新投影到以它为活跃供应商的应用的 live 配置，逐应用报出失败名称而不是一律报成功。（[#6779](https://github.com/farion1231/cc-switch/pull/6779)）
+
+#### Codex 编辑框不再显示另一张卡的密钥
+
+开启官方登录保留时，`auth.json` 是一个没有供应商身份的共享槽位，而编辑框播种表单时曾优先读它——编辑活跃的 Codex 供应商可能显示、并在保存时固化另一张卡遗留的密钥，让共享同一 Base URL 的卡密钥互相趋同（表现为「model not found」）。编辑框现在从 `config.toml` 里该供应商自己的 bearer token 重建密钥；官方类与纯 OAuth 供应商不受影响，而 `config.toml` 里没有自有 bearer token 的卡——旧版或手工维护的形态，本版起每次第三方切换都会写入——保持原有行为、继续读取 live `auth.json`（含手工修改）。（[#6534](https://github.com/farion1231/cc-switch/pull/6534)，修复 [#6414](https://github.com/farion1231/cc-switch/issues/6414)）
+
+#### 恢复不再清空非受管的 prompt 文件
+
+WebDAV/S3 下载或备份导入时，若快照里某应用没有任何已启用的 prompt，该应用的 live prompt 文件（`CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `SOUL.md`）会被截断为空——摧毁从未进入同步载荷的本地手写内容。这样的恢复现在完全不碰该文件；从提示词面板里禁用最后一条 prompt 仍会照旧清空它。（[#6810](https://github.com/farion1231/cc-switch/pull/6810)，修复 [#6778](https://github.com/farion1231/cc-switch/issues/6778)）
+
+#### 恢复界面的退出按钮真的能退出了
+
+`process:allow-exit` 权限缺失，v3.20.0 上「数据库版本过新」恢复界面的退出按钮、以及配置加载失败后的退出调用都被 IPC 层静默拒绝：退出按钮毫无反应（关闭窗口仍可退出），配置加载失败后应用径直进入正常界面而不是按设计退出。该问题由 @SaladDay 在 [#6567](https://github.com/farion1231/cc-switch/pull/6567) 更早独立发现并率先修复。
+
+#### Claude 会话记账正确性三修
+
+随增量扫描器落地的三个数据准确性修复，均针对 Claude 会话日志路径。写到一半的日志行曾被旧的行号游标永久跳过（未完成的尾部推进了游标，补全后的消息再也不会被导入）——字节游标只在完整行之后提交，该消息下一轮即被拾取。被外部截断或改写的会话文件**从不重放**：重新导入明细行已被 30 天汇总清理的条目会让总数永久虚高，因此游标钉在新的文件末尾，被跳过的范围报告进同步结果的错误列表而不是静默丢弃（截断由游标越界发现，同尺寸改写由游标前字节的指纹发现）。文件中途的读取错误现在保留已提交的进度、下一轮从原处续读并上报，而不是返回一次干净的成功；游标预取失败会中止本轮，而不是表现得像首次扫描、把历史重复导入一遍。
+
+---
+
+### 性能
+
+#### Claude 会话日志：字节游标增量扫描
+
+每轮扫描现在直接定位到上次提交的字节偏移、只读新追加的部分，而不是把变更过的文件从头读到尾——按改动自带的基准测试，12 MB 的活跃会话文件从整读解析 6.04 秒降到增量读取 9.3 毫秒。Claude、Gemini、OpenCode、Grok Build 与 Pi 的逐文件游标改为每个导入器每轮一次整表预取，而不是逐文件查询；Claude 路径上每个文件的导入与游标推进在同一事务中提交。1,017 个会话文件（409 MB）的冻结快照回放产出与旧扫描器逐位一致的汇总。需要一次 schema 迁移（v17 → v18），新增两个可空列——字节游标与尾部指纹；既有的行号游标在首轮扫描时就地转换，不重复导入任何内容。
+
+#### Pi 会话去重走上身份索引
+
+合并的去重查询（跨两个身份列的 OR）只能约束数据源前缀，每条解析记录都要扫过账本里整个 Pi 区段——Pi 导入随用量历史增长越来越慢。现拆分为可走索引的点查询、结果完全一致，导入耗时不再随历史规模退化。（[#6667](https://github.com/farion1231/cc-switch/pull/6667)）
+
+---
+
+### 升级提醒
+
+#### 本版包含数据库迁移，降级需还原备份
+
+schema 从 v17 迁移到 v18（会话扫描游标表新增字节游标与尾部指纹两列），迁移前自动创建备份。本版运行过一次后，旧版 CC Switch 会拒绝打开数据库——降级需还原该备份。旧的半行缺陷已漏掉的用量条目不做追溯找回——重放它们与重复导入已汇总的历史无法区分。
+
+#### Codex OAuth 存量账号需要重新登录一次
+
+本版之前添加的每个托管 ChatGPT（Codex OAuth）账号都处于隔离状态，直到你在认证中心该账号行上点击「重新登录」——老记录以 ChatGPT workspace ID 为账号主键、没有单独记录的用户身份，普通的令牌刷新无法证明老记录属于哪个用户。供应商绑定会被保留，重新登录就地更新账号。请务必用账号行上的「重新登录」按钮：通过「添加账号」再登一次只会新建第二条记录（登录不再按 workspace 合并），老记录——以及绑定它的供应商——依然处于隔离状态。（[#6780](https://github.com/farion1231/cc-switch/pull/6780)）
+
+#### Codex 0.48 以前的版本失去第三方鉴权
+
+config-only 切换写入的 provider 表令牌字段，0.48 以前的 Codex 从不读取。还在用旧版 Codex 的用户请升级 Codex。
+
+#### 保留开关关闭时，切换第三方会删除 auth.json
+
+「非接管切换时保留官方登录」开关**关闭（默认）**时，切换到第三方 Codex 供应商现在会**删除** `auth.json`，而不是用 API 密钥覆盖它。要找回 ChatGPT 登录：切换到绑定了认证中心账号的官方供应商即可（登录会从托管账号完整写回）；跟随 Codex CLI 自身登录的未绑定官方卡则需要跑一次 `codex login`。想让官方登录跨第三方切换存活，把开关打开即可。
+
+#### 部分以前「能用」的 Codex 卡现在会在切换时被拒绝
+
+配置为空的第三方卡（没有表可以承载密钥），以及依赖 `requires_openai_auth = true` 或裸 `openai_base_url` 路由去借用官方登录的无密钥卡，现在都会被点名拒绝。给这类卡补上正规的 `[model_providers.<id>]` 条目或 API 密钥即可。
+
+#### 存量 Codex 配置会在下次写入 live 时按 0.149 需要被重写
+
+带可用密钥的旧式 `openai_base_url` 路由变成 `[model_providers.cc-switch]` 表、占用保留 id 的遗留表改名为 CC Switch 自有 id、缺失的 `name` 字段被回填；活跃带密钥第三方表上的 `requires_openai_auth` 在每次切换时按保留开关覆盖——你在该表上手工设置的值不会在切换后存活。
+
+#### 截断或被外部改写的 Claude 会话日志将被永久跳过（设计使然）
+
+被改写的范围不重放（重放会与已清理的汇总重复计数），跳过的情况会报告在同步结果的错误列表里。
+
+#### #6534 修复前已经串染的密钥不会自动修复
+
+如果共享同一 Base URL 的 Codex 供应商已经趋同到同一个 key，请在每张受影响的卡上重新填一次正确的密钥。
+
+#### 恢复行为变化（#6810）
+
+恢复一份某应用没有任何已启用 prompt 的快照，现在会保留该应用的 live prompt 文件——客户端继续加载旧内容，即使提示词面板显示全部禁用。想清空它，在面板里启用再禁用一条 prompt（或自行编辑文件）。
+
+#### 统一供应商保存现在可能明确报错
+
+若某应用的活跃供应商是生成的子配置、而其 live 配置文件写入失败，保存会报出该应用名称；数据库记录仍已保存——重试同步或重新切换一次该应用的供应商即可。
+
+#### TeamoRouter 存量供应商保持 `api.teamorouter.com`
+
+从预设重新添加、或手动修改 Base URL，即可迁到 `.cn`。
+
+#### OpenCode Go 用量查询只对本版之后新增的供应商自动启用
+
+存量卡请打开其用量脚本设置，选择 Token Plan 模板 → OpenCode Go 一次。
+
+---
+
+### 风险提示
+
+#### 沿用的提示
+
+**xAI Grok OAuth 登录**：复用官方 Grok CLI 的公开 OAuth 客户端身份，使用可能导致账号被限制或封禁——详见 [v3.18.0 release notes](/zh/changelog/3.18.0#风险提示)。
+
+**Codex OAuth 反向代理**：使用 ChatGPT 订阅的 Codex OAuth 反代可能违反 OpenAI 服务条款，详情见 [v3.13.0 release notes](/zh/changelog/3.13.0#风险提示)。
+
+**SuperGrok 配额查询**：供应商卡片的配额展示依赖 grok.com 的非公开计费端点，xAI 调整接口后可能失效——详见 [v3.19.0 release notes](/zh/changelog/3.19.0#风险提示)。
+
+**第三方供应商路由**：通过 CC Switch 本地代理把 Codex、Claude Desktop 或 Grok Build 的请求转换并转发到第三方供应商时，各供应商对计费、合规与数据留存的约束不同，请在使用前阅读目标供应商的服务条款。
+
+用户启用上述功能即表示自行承担相关风险。CC Switch 不对因使用这些功能而导致的任何账号限制、警告或服务暂停承担责任。
+
+---
+
+### 致谢
+
+本版 26 个提交里有 8 个来自 5 位外部贡献者。
+
+#### 代码贡献
+
+- 感谢 @SaladDay：workspace 账号隔离整条主线（[#6780](https://github.com/farion1231/cc-switch/pull/6780)）、JWT 身份解析对齐（[#6831](https://github.com/farion1231/cc-switch/pull/6831)）与 Pi 会话去重索引（[#6667](https://github.com/farion1231/cc-switch/pull/6667)）；退出按钮的权限缺失也是他在 [#6567](https://github.com/farion1231/cc-switch/pull/6567) 更早独立发现并率先修复的。
+- 感谢 @YUZHEthefool：供应商编辑必达 live 配置（[#6779](https://github.com/farion1231/cc-switch/pull/6779)，与 @BingZi-233 协作）与 Codex 编辑框密钥串染修复（[#6534](https://github.com/farion1231/cc-switch/pull/6534)）——「修复」章节里两条数据正确性硬修复尽出于此。
+- 感谢 @SailingLoong：恢复不再清空非受管 prompt 文件（[#6810](https://github.com/farion1231/cc-switch/pull/6810)）。
+- 感谢 @yovinchen：Otty 终端支持（[#6620](https://github.com/farion1231/cc-switch/pull/6620)）。
+- 感谢 @ISuuuu：WSL2 契约测试改走预编译产物（[#6472](https://github.com/farion1231/cc-switch/pull/6472)）。
+
+#### 问题反馈
+
+- 感谢 @hlwhl 在 [#6744](https://github.com/farion1231/cc-switch/issues/6744) 对 Codex 0.149 凭据继承变化的精确报告——直接框定了本版最大主线的方向，并率先提出了修复 PR（[#6746](https://github.com/farion1231/cc-switch/pull/6746)）。
+- 感谢 Team workspace 账号互覆问题的各位报告者：@cp7553479（[#2245](https://github.com/farion1231/cc-switch/issues/2245)）、@Smilenize（[#5885](https://github.com/farion1231/cc-switch/issues/5885)）、@yingjiezhao0820（[#6688](https://github.com/farion1231/cc-switch/issues/6688)）与 @buqi759（[#6738](https://github.com/farion1231/cc-switch/issues/6738)）。
+- 感谢密钥串染家族的报告者：@Joaging（[#6414](https://github.com/farion1231/cc-switch/issues/6414)）、@KawaiiSh1zuku（[#6594](https://github.com/farion1231/cc-switch/issues/6594)）与 @Michael-py001（[#6827](https://github.com/farion1231/cc-switch/issues/6827)）。
+- 感谢 @gyzerocc 报告 WebDAV 恢复清空 AGENTS.md（[#6778](https://github.com/farion1231/cc-switch/issues/6778)）——精确指出了触发条件。
+
+---
+
+### 下载与安装
+
+访问 [Releases](https://github.com/farion1231/cc-switch/releases/latest) 下载对应版本，或从官网 [ccswitch.io](https://ccswitch.io) 获取（下载经 Cloudflare 边缘节点分发，不依赖 GitHub 可达）。
+
+#### 系统要求
+
+| 系统    | 最低版本                   | 架构                                |
+| ------- | -------------------------- | ----------------------------------- |
+| Windows | Windows 10 及以上          | x64 / ARM64                         |
+| macOS   | macOS 12 (Monterey) 及以上 | Intel (x64) / Apple Silicon (arm64) |
+| Linux   | 见下表                     | x64 / ARM64                         |
+
+#### Windows
+
+| 文件                                     | 说明                                |
+| ---------------------------------------- | ----------------------------------- |
+| `CC-Switch-v3.20.1-Windows.msi`          | **推荐** - MSI 安装包，支持自动更新 |
+| `CC-Switch-v3.20.1-Windows-Portable.zip` | 便携版，解压即用，不写入注册表      |
+
+Windows ARM64 设备请选择文件名中带 `arm64` 标识的对应制品。
+
+#### macOS
+
+| 文件                             | 说明                                          |
+| -------------------------------- | --------------------------------------------- |
+| `CC-Switch-v3.20.1-macOS.dmg`    | **推荐** - DMG 安装包，拖入 Applications 即可 |
+| `CC-Switch-v3.20.1-macOS.zip`    | 解压后拖入 Applications，Universal Binary     |
+| `CC-Switch-v3.20.1-macOS.tar.gz` | 用于 Homebrew 安装和自动更新                  |
+
+Homebrew 安装：
+
+```bash
+brew install --cask cc-switch
+```
+
+更新：
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux 资产同时提供 **x86_64** 和 **ARM64**（`aarch64`）两种架构。资产文件名中包含架构标识，请按你机器的 `uname -m` 输出选择对应版本：
+
+- `CC-Switch-v3.20.1-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.1-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| 发行版                                  | 推荐格式    | 安装方式                                                               |
+| --------------------------------------- | ----------- | ---------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`      | `sudo dpkg -i CC-Switch-*.deb` 或 `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`      | `sudo rpm -i CC-Switch-*.rpm` 或 `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`      | `sudo zypper install ./CC-Switch-*.rpm`                                |
+| Arch Linux / Manjaro                    | `.AppImage` | 添加执行权限后直接运行，或使用 AUR                                     |
+| 其他发行版 / 不确定                     | `.AppImage` | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`              |
+
 ## [3.20.0] - 2026-08-18
 
 > 这一版由三条结构性主线撑起：**Pi 成为第九个受管应用**——供应商、提示词、Skills、会话浏览与用量统计一站接入；**Codex 支持多个 ChatGPT 账号**——认证中心随便登几个，每张官方卡各绑各的，切换永不串账；**Claude Code 内置 WebSearch 在 GPT 路由下终于可用**。紧急修复也有一条：v3.19.2 在 WSL 路径上已有配置无法更新或切换，受影响用户请直接升级本版。同一批 Windows 修复还包括版本检测大修（五个 issue 一次修）、启动闪屏与 MSI 注册表垃圾键。本版**包含数据库迁移（v16 → v17）**，升级前自动备份，降级需还原备份。

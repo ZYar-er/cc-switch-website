@@ -73,7 +73,7 @@ export interface Sponsor {
   featured?: boolean;
 }
 
-// Mirrors the main project's README order with explicit placements for website-only sponsors.
+// Mirrors the main project's README order, followed by website-only sponsors.
 const sponsorDisplayOrder = [
   'kimi-k2-7-code',
   'packycode',
@@ -85,7 +85,6 @@ const sponsorDisplayOrder = [
   'runapi',
   'shengsuanyun',
   'aigocode',
-  'qiniu',
   'aicoding',
   'subrouter',
   'apikey-fun',
@@ -109,6 +108,7 @@ const sponsorDisplayOrder = [
   'cubence',
   'crazyrouter',
   'dmxapi',
+  'qiniu',
   'sudocode',
   'xycai',
 ] as const;
@@ -727,7 +727,7 @@ export const sponsors: Sponsor[] = [
     id: 'apikey-fun',
     name: 'APIKEY.FUN',
     icon: apikeyFunIcon,
-    url: 'https://apikey.fun/register?aff=CCSwitch',
+    url: 'https://apikey.fan/register?aff=CCSwitch',
     tier: 'standard',
     category: 'relay',
     iconBg: 'light',

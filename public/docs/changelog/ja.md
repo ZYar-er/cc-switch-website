@@ -2,6 +2,938 @@
 
 CC Switch の重要なリリース更新記録です。
 
+## [3.20.3] - 2026-09-11
+
+> 主流のオープンソースモデルの公式 API は、いまやそのほとんどが OpenAI Responses 形式をネイティブにサポートしています。本リリースは Codex の Kimi の 2 プリセットも Chat Completions 変換から**ネイティブ Responses 直接接続**へ移しました——これで DeepSeek・Zhipu GLM・Qwen・MiniMax・Xiaomi MiMo・LongCat・Kimi といった主流オープンソースモデルの公式 Codex プリセットはすべてベンダーのエンドポイントへ直接接続し、Volcengine Doubao と Tencent Hunyuan と合わせて、形式変換のためにローカルルーティングを有効にする必要はなくなりました。お使いの Codex カードが以前に追加した Chat 形式のままなら、プリセットを追加し直すか、編集ページで「上流フォーマット」を Responses に変更すれば直接接続になります。残りはコントリビューター主導の正確性修正の一群です：空の `reasoning_content` プレースホルダーが Claude Code を空の Thought ブロックで埋め尽くすことはなくなり、Codex の長いタスクが進捗報告のひと言のあとで唐突に終わることはなくなり、Claude Desktop のモデルプローブが Responses 上流で「利用不可」と誤報することはなくなり、終了のたびに Claude のプロキシのリトライとタイムアウトを Codex / Gemini / Grok Build へ書き写していた書き潰しは止まり、ユニバーサルプロバイダの同期が子カードの設定を消すことはなくなりました。Codex 側では `model_provider` を省いたときのプロキシルーティング、Windows で増え続けるセッションの使用量、トレイでの管理対象アカウントの残量を補いました。プリセットと料金も一巡メンテナンスしました：アグリゲーターのカタログ刷新、千问AI平台 の改名と Qwen 3.8 への更新、MiniMax の既定 M3、DeepSeek V4 ファミリーの V4.1 Flash 段階への価格改定。**本リリースにデータベースマイグレーションは含まれません。**
+
+### ハイライト：本リリースでできること
+
+- **Codex で Kimi にネイティブ Responses で直接接続する**：Kimi オープンプラットフォームと Kimi For Coding の 2 プリセットが `openai_chat` から `openai_responses` へ変わり、Codex はベンダーの `/v1/responses` へ直接つながります。Responses→Chat 変換のためにローカルルーティングを有効にする必要はもうありません。これで DeepSeek・Zhipu GLM・Qwen・MiniMax・Xiaomi MiMo・LongCat・Kimi といった主流オープンソースモデルの公式 Codex プリセットはすべて直接接続になりました。Chat Completions しか提供しないエンドポイント（Baidu Qianfan、Tencent Token Plan、QwenCloud For Coding、StepFun、BaiLing、ModelScope と各アグリゲーター）は引き続きローカルルーティングで変換します。手元のカードが以前に追加した Chat 形式のまま（Kimi、そして前のリリースで切り替わった DeepSeek や GLM など）なら、プリセットを追加し直すか、編集ページで「上流フォーマット」を Responses に変更すれば直接接続になります。詳細はアップグレード時の注意を参照してください。
+- **Claude Code が空の Thought ブロックで埋め尽くされなくなりました**（[#7227](https://github.com/farion1231/cc-switch/pull/7227)、[#5028](https://github.com/farion1231/cc-switch/issues/5028)・[#4404](https://github.com/farion1231/cc-switch/issues/4404) を修正）：GLM・Qwen・DeepSeek のように各 chunk に空の `reasoning_content` プレースホルダーを載せる上流でも、トークンごとに 1 行＋空の思考ブロックが並ぶことはなくなりました。
+- **Codex の長いタスクが進捗報告のひと言のあとで唐突に終わらなくなりました**（[#7280](https://github.com/farion1231/cc-switch/pull/7280)、[#6529](https://github.com/farion1231/cc-switch/issues/6529) を修正）：Chat 上流を経由するとき、commentary と直後のツール呼び出しは同じ assistant メッセージにまとめられ、上流が早まって `stop` を返すことはなくなりました。
+- **Claude Desktop が Responses 上流で「モデルは利用できません」と報告しなくなりました**（[#7287](https://github.com/farion1231/cc-switch/pull/7287)、[#7103](https://github.com/farion1231/cc-switch/issues/7103) を修正）：プローブの `max_tokens=1` は変換時に Responses API が許す最小値 16 へ切り上げられます。
+- **終了後に Codex・Gemini・Grok Build のプロキシのリトライとタイムアウト設定が Claude のもので上書きされなくなりました**（[#7210](https://github.com/farion1231/cc-switch/pull/7210)、[#7204](https://github.com/farion1231/cc-switch/issues/7204) を修正）。
+- **ユニバーサルプロバイダの同期が子カードの使用量スクリプト・共通設定のオプトアウト・並び順を消さなくなりました**（[#7212](https://github.com/farion1231/cc-switch/pull/7212)、[#7134](https://github.com/farion1231/cc-switch/issues/7134) を修正）。
+- **`model_provider` を書いていない Codex カードも引き継ぎ時にローカルプロキシを経由します**（[#7263](https://github.com/farion1231/cc-switch/pull/7263)、[#6256](https://github.com/farion1231/cc-switch/issues/6256) を修正）。`api.openai.com` へこっそり直接つながることはなくなりました。
+- **Windows で増え続ける Codex セッションの使用量を取りこぼさなくなりました**（[#7219](https://github.com/farion1231/cc-switch/pull/7219)、[#6060](https://github.com/farion1231/cc-switch/issues/6060) を修正）：mtime が動かないときはファイルサイズでも判定します。
+- **管理対象 Codex カードに紐づいた ChatGPT アカウントの残量をトレイに表示します**（[#7267](https://github.com/farion1231/cc-switch/issues/7267) を修正）：複数アカウントを紐づけたときに名前だけになることはなくなりました。
+- **Claude Fable の週次上限が見えます**：プロバイダカードとトレイのどちらも、使用量 API の新しい `limits[]` 配列を解析します。
+- **Claude Code の Artifact ツールをワンクリックで無効化できます**：DeepSeek のようにツールスキーマを厳格に検証するゲートウェイが、リクエストのたびに 400 を返すことはなくなります。
+- **DeepSeek 公式 Codex プリセットで画像を読めます**（[#7286](https://github.com/farion1231/cc-switch/pull/7286)、[#7283](https://github.com/farion1231/cc-switch/issues/7283) を修正）。`deepseek-flash` と V4 ファミリーは V4.1 Flash 段階で計上され、$0 や旧ピーク価格で記録されることはなくなりました。
+- **千问AI平台 Token Plan をワンクリックで追加できます**（[#7183](https://github.com/farion1231/cc-switch/pull/7183)）。千问AI平台 は Qwen 3.8 へ、MiniMax の既定は M3 へ（[#7255](https://github.com/farion1231/cc-switch/pull/7255)）、アグリゲーターの Codex カタログも刷新されました。
+
+---
+
+### 利用ガイド
+
+- **[プロバイダの追加](/ja/docs?section=providers&item=add)**：Codex のネイティブ Responses 直接接続と Chat ルーティング変換の違い、Claude のクイックトグル表（新しい「Artifact ツールを無効化」を含む）、そして「プリセット変更は新規プロバイダにのみ影響する」の意味。
+- **[リクエストルーティング](/ja/docs?section=proxy&item=routing)**：引き継ぎモードでの設定の書き換えと復元——本リリースの Codex に `model_provider` がないときのルーティング修正はこの経路に乗ります。
+- **[使用量統計](/ja/docs?section=proxy&item=usage)**：Codex のセッション解析と料金設定、本リリースのバイトカーソルと料金補填の基準。
+
+---
+
+> [!WARNING]
+>
+> ## 唯一の公式チャネル（必ずお読みください）
+>
+> CC Switch は**完全に無料・オープンソース**のデスクトップアプリで、**ユーザーから料金を徴収することはありません**。本ソフトウェアは下記の公式チャネルからのみ入手してください：
+>
+> | チャネル     | 唯一の公式                                                                     |
+> | ------------ | ------------------------------------------------------------------------------ |
+> | 公式サイト   | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | ソースコード | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | ダウンロード | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | 作者         | **[@farion1231](https://github.com/farion1231)**                               |
+> | 偽サイト通報 | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **料金請求・チャージ・認証情報の提供を求める「CC Switch」サイトやクライアントはすべて偽物です。** 支払いを誘導された場合は直ちに操作を中止し、GitHub Issues からご報告ください。
+
+---
+
+### 概要
+
+主流のオープンソースモデルの公式 API は、いまやそのほとんどが OpenAI Responses エンドポイントをネイティブに提供しており、Codex はもとより Responses を唯一のネイティブプロトコルとしています。これまで CC Switch は、これらのモデルの Codex プリセットを 2 つの形に分けていました：ベンダーのエンドポイントが Responses をネイティブに対応するものは直接接続、Chat Completions しか提供しないものはローカルプロキシが Codex の Responses リクエストを Chat へ変換し、ストリーミングレスポンスを戻す形です。変換経路も使えますが、翻訳が 1 層増えれば誤りの起きる場所も 1 つ増えます——本リリースが修正した [#7280](https://github.com/farion1231/cc-switch/pull/7280) はまさにこの種の変換欠陥です。Kimi オープンプラットフォームと Kimi For Coding のエンドポイントはいまやどちらも `/v1/responses` をネイティブに提供し、公式の Codex 接続ガイドも `wire_api = "responses"` を要求しているため、この 2 プリセットはネイティブ Responses 直接接続に変わりました。これで DeepSeek・Zhipu GLM・Qwen（千问AI平台 / QwenCloud）・MiniMax・Xiaomi MiMo・LongCat・Kimi といった主流オープンソースモデルの公式 Codex プリセットは、Volcengine Doubao と Tencent Hunyuan と合わせて、すべてベンダーのエンドポイントへ直接接続します。Chat Completions しか提供しないエンドポイント（Baidu Qianfan、Tencent Token Plan、QwenCloud For Coding、StepFun、BaiLing、ModelScope と各アグリゲーター）は引き続きローカルルーティングで変換し、マニュアルの「Chat のみ」の例もこれらのプロバイダを名指しする形に変わりました。
+
+その他はコントリビューター主導の正確性修正の一群で、数か月開いたままだった issue をいくつも閉じました。プロキシ側：各 chunk に空の `reasoning_content` プレースホルダーを残す OpenAI 互換上流が Claude Code を空の Thought ブロックで埋め尽くし、トークンごとに改行させることはなくなりました。Codex の Responses→Chat 変換器は commentary メッセージと直後のツール呼び出しを 2 つの assistant メッセージに割らなくなりました——これが長いタスクを進捗報告のひと言で終わらせていた原因です。Claude Desktop の 1 トークンのモデルプローブは Responses API の最小値へ切り上げられ、マッピング先のモデルが「利用不可」と報告されることはなくなりました。Codex ルーティング下の画像生成には、貼り付けられた完全エンドポイント・大文字小文字混在の接尾辞・ストリーミング使用量の 3 点を補いました。データ整合性の問題も 2 件閉じました：正常終了のたびに Claude のリトライとタイムアウト設定が Codex・Gemini・Grok Build のプロキシ行へ書き写されていた問題と、ユニバーサルプロバイダの同期が子カードの使用量スクリプト・共通設定のオプトアウト・エンドポイント自動選択を消し、カードを一覧の最下部へ押しやっていた問題です。Codex 側：カードが `model_provider` を省いているとき、引き継ぎがプロキシアドレスを尊重するようになりました。使用量インポートは永続化したバイトカーソルによって Windows NTFS 上で増え続ける rollout を認識します。トレイは管理対象 Codex カードに紐づいた ChatGPT アカウントの残量を表示します。Claude Fable の週次上限がカードとトレイに現れます。Claude プロバイダエディタには、Claude Code の Artifact ツールスキーマを受け付けないゲートウェイ向けに「Artifact ツールを無効化」クイックトグルが加わりました。
+
+プリセット側：アグリゲーターの Codex プリセットは現在のカタログへ刷新され、DashScope/Bailian は 千问AI平台 へ改名して Qwen 3.8 へ上がり（[#7183](https://github.com/farion1231/cc-switch/pull/7183)）、MiniMax の既定は M3 へ移り（[#7255](https://github.com/farion1231/cc-switch/pull/7255)）、内蔵の DeepSeek Codex カタログは視覚対応の `deepseek-flash` をミラーし（[#7286](https://github.com/farion1231/cc-switch/pull/7286)）、DeepSeek V4 ファミリーは V4.1 Flash 段階へ価格改定されました。本リリースはデータベーススキーマを変更しません。
+
+**リリース日**：2026-09-11
+
+**変更規模**：22 commits | 62 files changed | +3,458 / -802 lines
+
+---
+
+### 新機能
+
+#### Claude プロバイダエディタに「Artifact ツールを無効化」クイックトグルを追加
+
+一部のサードパーティ Anthropic 互換ゲートウェイ（DeepSeek もその 1 つ）は、ツールの JSON Schema を厳格な正規表現バリデータで検査し、Claude Code の Artifact ツールが `str_replace` データベース機能の展開後に発する Unicode プロパティエスケープ（`\p{Cc}`、`\p{Cf}` など）を受け付けません——以後はリクエストのたびに 400 `Invalid schema for function 'Artifact'` となり、選択したモデルとは無関係です。Claude のクイックトグルの隣に 6 つ目のチェックボックスが加わり、プロバイダに `env.CLAUDE_CODE_DISABLE_ARTIFACT="1"` を設定して Artifact ツールを tools 配列から丸ごと除外します。チェックを外すと、他のトグルと同じようにそのキーを削除します。4 言語の文言とマニュアル（zh/en/ja）のトグル表も同期済みです。
+
+#### Claude Fable の週次上限がプロバイダカードとトレイに現れます
+
+Claude OAuth 使用量 API は、モデル単位の週次上限をトップレベルの `limits[]` 配列（`kind: "weekly_scoped"`、`scope.model.display_name` と `percent` つき）に載せるようになり、独立したトップレベルのウィンドウではなくなりました。パーサーは旧来のウィンドウしか読んでいなかったため、Fable の上限は一度も表示されていませんでした。`limits[]` は `seven_day_fable`・`seven_day_opus`・`seven_day_sonnet` へ解析されるようになりました——scoped 行は同名の旧ウィンドウを上書きし、重複と不正な行はスキップし、旧ウィンドウ・追加使用量・未知のウィンドウはいずれも保持します。トレイは Fable に独立したラベル群を与え、週次 max の値に混ぜません。4 言語に「Fable」ラベルを追加しました。
+
+#### 新しいプリセット
+
+千问AI平台 Token Plan（[#7183](https://github.com/farion1231/cc-switch/pull/7183)）が Claude Code・Claude Desktop・Codex・Hermes・OpenClaw・OpenCode・Pi の 7 アプリのプリセットライブラリに加わりました。下記の改名と同じ回です。既存のプロバイダは影響を受けません。
+
+#### `deepseek-flash` と `deepseek-v4-flash-vision-exp` の料金行
+
+`deepseek-flash` は DeepSeek が現在推奨する唯一の id で、`deepseek-v4-flash-vision-exp` は公式インストールスクリプトが 1.2.0 以前に書き込んでいた旧来の視覚モデル名です。どちらも V4.1 Flash が提供し、その 100 万トークンあたり $0.30/$1.20、キャッシュ読み取り $0.006 で計上されます。これまでどちらにも行がなく、`LIKE '{id}-%'` のプレフィックスフォールバックはより長い id にしか一致しないため、この 2 つの id のリクエストはすべて $0 で計上されていました。
+
+---
+
+### 変更
+
+#### Kimi の Codex プリセットがネイティブ Responses 直接接続に変わりました
+
+Kimi オープンプラットフォーム（`api.moonshot.cn/v1`）と Kimi For Coding（`api.kimi.com/coding/v1`）はいまやどちらも `/v1/responses` をネイティブに提供し、公式の Codex 接続ガイドは `wire_api = "responses"` を要求しているため、2 つのプリセットは `openai_chat`（ローカルプロキシが Responses→Chat 変換を行い、ルーティング引き継ぎが必須）から `openai_responses`（Codex が直接接続）へ変わりました。両エンドポイントとも実キーを使い、Codex 0.153.4 の完全なリクエスト形状（`reasoning.encrypted_content`、`reasoning.summary`、ホスト型 web_search、リプレイされる reasoning 項目）で実測し、`codex exec` でエンドツーエンドのツールループも通しました。`kimi-k3` がオープンプラットフォームの既定モデルかつカタログの先頭行になり、`kimi-k2.7-code` は 2 行目として残ります。Chat 変換にしか意味のない `codexChatReasoning` は両プリセットから外れ、Kimi For Coding の `promptCacheRouting` も外れました——ネイティブ経路では Codex 自身が `prompt_cache_key` を送ります。Kimi の各行は `supportsParallelToolCalls` を宣言し、公式の Kimi Code `models.json` と揃います。reasoning の既定値は宣言しません。`config.toml` の `model_reasoning_effort` がカタログの既定値より優先され、後者は `/model` セレクタを示すだけだからです。マニュアル（zh/en/ja）の「Chat のみ」の例は、いまも Chat ルーティングを通るプロバイダを名指しする形に変わり、「Kimi Code は `codex-cli` の user agent を受け付けない」という古い記述も訂正しました。バックエンドの変更はありません。
+
+#### アグリゲーターの Codex プリセットを現在のカタログへ刷新
+
+SiliconFlow（.cn）は既定が `deepseek-ai/DeepSeek-V4-Flash`（1M ウィンドウ、high/max 段階、明示的な `enable_thinking`/`reasoning_effort` の取り決め）に変わりました。国内サイトの MiniMax M2.5 が提供終了になったためです。Atlas Cloud は `zai-org/glm-5.2`——その Coding Plan に含まれる最新の GLM（1M ウィンドウ）——へ。Novita は `zai-org/glm-5.3`（1M、テキスト専用）へ。NVIDIA NIM は `moonshotai/kimi-k3`（1M、テキスト＋画像。NIM は `reasoning_effort` の low/high/max を受け付け、フィールドを省略すると max 扱いになるため、プリセットは `config.toml` と揃うよう high を明示的に固定します）へ。OpenCode Go の GLM/Kimi エントリも更新され——`glm-5.3`（新しい既定）、`glm-5.3-flash`、`kimi-k3` が `glm-5.2`・`glm-5.1`・`kimi-k2.7-code` を置き換え、ウィンドウ・モダリティ・段階は models.dev をミラーし、DeepSeek V4 Pro/Flash と MiMo V2.5 Pro の行は残ります。新モデルの思考/段階の取り決めをプラットフォームが文書化していない場合（Atlas Cloud、Novita）、プリセットは明示的な空のオーバーライドを持ち、バックエンドはモデル名からベンダーネイティブの思考フィールドを注入しなくなります。
+
+#### DashScope/Bailian プリセットを 千问AI平台 へ改名し Qwen 3.8 へ更新（[#7183](https://github.com/farion1231/cc-switch/pull/7183)）
+
+国内の Bailian プリセットは 千问AI平台 へ改名し、専用アイコンを添え、コンソールと API キーのリンクは `platform.qianwenai.com` へ移りました。Qwen シリーズは Claude Code・Claude Desktop・Codex・Hermes・OpenClaw・OpenCode・Pi の 7 か所で 3.8 世代へ上がり——Opus/Sonnet/Haiku の役割にはそれぞれ `qwen3.8-max` / `qwen3.7-plus` / `qwen3.8-flash` が対応し、公式の 983,616 トークンウィンドウを一貫して使います。国内の `Bailian For Coding` プリセット（Claude Code、Claude Desktop、Hermes）は `千问AI平台 Coding Plan` へ改名し、エンドポイントは変わりません。OpenClaw/OpenCode/Pi のモデルメタデータは公式クライアントのドキュメントに合わせました。国際版の QwenCloud プリセットは名称を保ったまま専用アイコンへ差し替え、従量課金プリセットは Qwen 3.8 へ上がり、Token Plan プリセットもそれに揃い（Codex と Hermes はもともと 3.8 の行を持っていました）、QwenCloud For Coding は `qwen3.7-plus`・`qwen3-coder-plus` と `coding-intl` エンドポイントを保ちます。エンドポイントの例外は 1 か所だけです：Pi の QwenCloud Token Plan が `/apps/anthropic`（Anthropic Messages）から `/compatible-mode/v1`（OpenAI Chat Completions）へ切り替わりました。Hermes と OpenClaw の Token Plan は引き続き Anthropic のアドレスのままです。
+
+#### MiniMax プリセットの既定が M3 に、期限切れの特典を削除（[#7255](https://github.com/farion1231/cc-switch/pull/7255)、[#7254](https://github.com/farion1231/cc-switch/issues/7254) を修正）
+
+公式の MiniMax と MiniMax (en) プリセットは、7 つのプリセットファイルすべてで `MiniMax-M3` を既定にします——Claude Code は 1M コンテキストを宣言し（`MiniMax-M3[1M]` に公式の `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000` を添えます）、Claude Desktop は 1M 対応を有効にし、OpenClaw/OpenCode/Pi のメタデータは 1,000,000 トークンのコンテキスト、131,072 トークンの出力予算、画像入力と推論対応を持ちます。期限切れの Coding Plan プロモーションは、すべてのプリセットと 4 言語の文言から削除しました。既存の設定とサードパーティの既定値は変わりません。
+
+#### DouBaoSeed プリセットを Volcengine Doubao へ改名
+
+7 つのアプリのプリセットファイルで表示名をローカライズしました：zh/zh-TW は「火山 豆包AI」、en/ja は「Volcengine Doubao」です。Qiniu/Compshare の慣例に倣い、トップレベルの名前はラテン文字のフォールバックを保つため、中国語でも英語でも検索できます。OpenCode と Pi がクライアントの設定ファイルへ書き込む `settingsConfig.name` も同時に改名しましたが、ASCII の形（`Volcengine Doubao`）を保ちます。live 設定内の識別子は意図的に触れていません：Codex TOML のプロバイダ名、Hermes のノードキー `doubao_seed`、Pi のプロバイダキー、OpenClaw のモデル参照の接頭辞、プロモーションキー、アイコンです。
+
+#### DeepSeek V4 ファミリーを V4.1 Flash 段階へ価格改定
+
+DeepSeek は V4 Flash を提供終了し、2026-09-14 12:00（北京時間）から V4 Pro のリクエストを V4.1 Flash へルーティングして Flash 価格で課金すると発表しました。本リリースはこの切り替えを前倒しで実施します。`deepseek-v4-flash`・`deepseek-v4-flash-0731`・`deepseek-v4-pro` は $0.30/$1.20、キャッシュ読み取り $0.006 へ変わります。修復エントリは前の段階のピーク値のままの行だけを訂正し、2026-08-16 のピーク/オフピーク行の後ろに連なるため、古いデータベースは段階を追って追いつきます。`deepseek-chat` と `deepseek-reasoner` は権威ある情報源がないため手を付けません。`deepseek-v4-pro` は同時にテキスト専用の確認済みリストからも外れます——いまは視覚対応のモデルに着地するため、画像のサニタイズはこのモデルに対して fail-open します。
+
+#### Claude の「すべての役割に適用」がフォームの順序で値を取ります
+
+1 つのモデル名を Claude のモデルマッピングの全役割へワンクリックで写すボタンは、これまで `ANTHROPIC_MODEL` を先に取っていました。いまはパネルの上から下へ（Sonnet、Opus、Fable、Haiku、サブエージェント）読み、既定モデルは最後のフォールバックとしてのみ使います。
+
+#### Atlas Cloud はスポンサーではなくなりました
+
+スポンサーの識別は、README 4 言語のスポンサー表、バナー、`isPartner`/`partnerPromotionKey` のフラグ、プロモーション文言から削除しました。7 つのアプリのプリセットそのものは残り、スポンサーグループから非スポンサーグループへ移り、エンドポイント・モデル・アイコンは変わりません。
+
+---
+
+### 修正
+
+#### 空の `reasoning_content` プレースホルダーが Claude Code を空の Thought ブロックで埋め尽くさなくなりました
+
+一部の OpenAI 互換上流（GLM、Qwen、ModelScope/DashScope 経由の DeepSeek-V4-Pro、Bailian、JD Cloud……）は、フィールドを省略する代わりに各コンテンツ chunk に `reasoning_content: ""` のプレースホルダーを残します。OpenAI Chat→Anthropic SSE 変換器の reasoning 分岐はフィールドの有無しか見ておらず、しかもコンテンツ分岐と「現在開いているブロック」の状態を共有していたため、コンテンツ chunk のたびに開いていたテキストブロックを閉じ、空の thinking ブロックを開き、またテキストブロックを開き直していました——N 個のコンテンツ chunk が 2N 個のコンテンツブロックになり、その半分は空の thinking ブロックです。Claude Code はこれをトークンごとに 1 行、加えて数十個の空の Thought ブロックとして描画し、セッションの JSONL も同じだけ膨らんでいました。空の reasoning は分岐に入る前に除外されるようになり、コンテンツ分岐と非ストリーミング変換器がすでに持っていたガードと揃いました。2 つのリグレッションテストが、プレースホルダー形状と本物の推論の双方でブロックのインデックス・種別・順序を固定します。（[#7227](https://github.com/farion1231/cc-switch/pull/7227)、[#5028](https://github.com/farion1231/cc-switch/issues/5028)・[#4404](https://github.com/farion1231/cc-switch/issues/4404) を修正。[#4869](https://github.com/farion1231/cc-switch/pull/4869)・[#6421](https://github.com/farion1231/cc-switch/pull/6421)・[#6576](https://github.com/farion1231/cc-switch/pull/6576) を置き換え）
+
+#### Codex の長いタスクが Chat 上流で進捗報告のひと言のあとに止まらなくなりました
+
+Codex の Responses→Chat Completions 変換器は、同じモデルターンの中で commentary メッセージの直後に `function_call` 項目が来ると、連続する 2 つの assistant メッセージを出力していました。Chat 上流はテキストだけのメッセージを完全な 1 ターンとみなし、期待されるツール呼び出しの前に `finish_reason=stop` を返していました。保留中のツール呼び出しは、まだ `tool_calls` を持たない直隣の assistant メッセージへまとめられるようになり、保留中の reasoning は並列呼び出しで重複しないようセグメント単位で付加され、その他の境界形状（user/tool の境界、直前のツール呼び出しのまとまり、メディアのフラッシュ）は引き続き新しいメッセージの経路を通ります。まとめた後に reasoning を持たない呼び出しには、従来どおりプレースホルダーの補填を行います。（[#7280](https://github.com/farion1231/cc-switch/pull/7280)、[#6529](https://github.com/farion1231/cc-switch/issues/6529) を修正。[#6530](https://github.com/farion1231/cc-switch/pull/6530)・[#5895](https://github.com/farion1231/cc-switch/pull/5895) を置き換え。[#5860](https://github.com/farion1231/cc-switch/issues/5860) でも報告）
+
+#### Claude Desktop のモデルプローブが Responses 上流で失敗しなくなりました
+
+Responses API は 16 未満の `max_output_tokens` を受け付けませんが、Anthropic クライアントはごく小さなプローブ予算を正当に送ります——Claude Desktop のモデル可用性プローブは `max_tokens=1` を使います——Anthropic→Responses 変換はこの値をそのまま写していたため、厳格な上流は 400 を返し、Claude Desktop はローカルルーティング下でマッピング先のモデルを利用不可と報告していました。1 から 15 は変換時に 16 へ切り上げられます。16 以上、0、非整数はパススルーの意味を保ち、通常のセッションリクエストは 1 バイトも変わらず、Codex OAuth 経路は引き続きその後で `max_output_tokens` を剥がします。（[#7287](https://github.com/farion1231/cc-switch/pull/7287)、[#7103](https://github.com/farion1231/cc-switch/issues/7103) を修正）
+
+#### Codex ルーティング下の画像生成：貼り付けられた完全エンドポイント、大文字小文字混在の接尾辞、ストリーミング使用量
+
+`/images/edits` ルートと、Images/Responses/Compact/Chat が共有する接尾辞テーブルは v3.20.2 ですでに出荷済みで、今回はその周りの 3 つの隙間を埋めます。Base URL が完全な `/chat/completions` または `/responses` エンドポイントとして貼り付けられ、「完全 URL」スイッチがオフのとき、Images と Alpha Search の兄弟エンドポイントは Chat 経路がすでに持っていた許容と同じやり方で導出されるようになり、独立したリクエストを `…/chat/completions/images/generations` へ送ることはなくなりました。接尾辞の認識と兄弟の書き換えは大文字小文字を区別せず（`/v1/Images/Edits/`、`/v1/Responses/Compact/`）、元の URL の接頭辞・パーセントエンコーディング・クエリ文字列を保ちます。ストリーミングの Images 使用量は `image_generation.completed` イベントのトップレベル `usage` から解析し（usage を持たない `partial_image` イベントは読み飛ばします）、その後 Chat Completions のストリームパーサーへフォールバックするため、ストリーミングの画像生成が 0 トークンとして記録されることはなくなりました。（[#7177](https://github.com/farion1231/cc-switch/pull/7177)、[#7036](https://github.com/farion1231/cc-switch/pull/7036) の後続）
+
+#### 終了とポート割り当てがアプリ単位のプロキシ設定を上書きしなくなりました
+
+正常終了時、プロキシの復元経路は、とうに退役した `live_takeover_active` フラグを消すために旧来のグローバルプロキシ設定ライターを呼んでいました。このライターは Claude の行を読み、WHERE 句のない UPDATE を走らせるため、シャットダウンのたびに Claude の `max_retries` と 3 つのタイムアウトフィールドを Codex・Gemini・Grok Build の行へ書き写していました——しかもこの UPDATE はそのフラグをそもそも載せておらず、この手順には書き潰す以外の効果が何もありませんでした。一時リッスンポートの経路も、プロキシ起動のたびに同じことをしていました。死んだ書き戻しは削除し（live 設定の復元、バックアップの掃除、ヘルスのリセットは変わりません）、解決した一時ポートは共有のリッスン/ログ列しか触らないグローバル設定インターフェース経由で永続化するようにしました。2 つのリグレッションテストが 4 つのアプリにそれぞれ異なる設定を与え、両方の経路でそれらが保たれることを表明します。（[#7210](https://github.com/farion1231/cc-switch/pull/7210)、[#7204](https://github.com/farion1231/cc-switch/issues/7204) を修正）
+
+#### ユニバーサルプロバイダの同期が子カードの設定と位置を保ちます
+
+ユニバーサルプロバイダを同期すると、その Claude/Codex/Gemini の子プロバイダが再生成されます。子カードの `settings_config` は既存の行とマージされていましたが、`meta`・`created_at`・`sort_index` は生成されたオブジェクトから取られており、ユニバーサルプロバイダは UI から来るときにこれらを一切持ちません——UPDATE は子カードの使用量スクリプト、共通設定のオプトアウト、エンドポイント自動選択といったアプリ単位の設定を `{}` へ消し、ソートインデックスを NULL にするため、カードは削除して作り直したかのように一覧の最下部へ落ちていました。既存の子カードはこの 3 つのフィールドを保つようになりました。名前・Base URL・キー・モデル・ウェブサイト・備考は引き続きユニバーサルプロバイダが駆動し、初回作成時は親のメタデータを継承したままです。（[#7212](https://github.com/farion1231/cc-switch/pull/7212)、[#7134](https://github.com/farion1231/cc-switch/issues/7134) を修正）
+
+#### `model_provider` を省いた Codex カードが引き継ぎ時にプロキシアドレスを尊重します
+
+Codex カードの TOML に `model_provider` がないとき、Codex は組み込みの `openai` プロバイダへフォールバックしますが、引き継ぎはプロキシアドレスを Codex がまったく読まないトップレベルの `base_url` に書いていたため、リクエストはローカルプロキシを迂回して `api.openai.com` へ直接向かっていました。欠けているセレクタは組み込みの `openai` プロバイダとみなされるようになり、プロキシアドレスは `openai_base_url` へ書かれます。既存の legacy-reroute マイグレーションがそれを `PROXY_MANAGED` bearer を持つ `cc-switch` カスタムプロバイダテーブルへ変えます——他のすべてのサードパーティ引き継ぎと同じ形です。明示的なプロバイダ選択は変わりません。（[#7263](https://github.com/farion1231/cc-switch/pull/7263)、[#6256](https://github.com/farion1231/cc-switch/issues/6256) を修正、[#7217](https://github.com/farion1231/cc-switch/issues/7217) 関連）
+
+#### Codex の使用量インポートが Windows で増え続ける rollout を認識します
+
+Codex はセッションの間ずっと rollout の追記ハンドルを開いたままにするため、Windows NTFS ではファイルが増えても mtime が動かず、mtime だけのゲートは増え続ける rollout を永遠にスキップしていました。観測したバイト長は既存の `session_log_sync.last_byte_offset` 列（Codex の行）に保存されるようになり、mtime とサイズの両方が変わらないときだけスキップします。パーサーは改行でレコードを手動に分割し、不完全な末尾レコードは次の回で再試行して行カーソルを進めません。後続の修正は、不完全な末尾のバイトも観測済みとして数えます：これまでは完全に消費したレコードだけを永続化した長さに数えていたため、末尾がレコードの途中や空白で終わる rollout（クラッシュして resume されなかったセッション）は常にファイルより短く見え、同期のたびに全量を再解析していました——行カーソルは引き続き不完全なレコードの手前で止まるため、ファイルが増えればすぐ再試行され、変わっていないファイルは mtime＋サイズのゲートでスキップされます。（[#7219](https://github.com/farion1231/cc-switch/pull/7219)、[#6060](https://github.com/farion1231/cc-switch/issues/6060) を修正。ほかに後続のコミットが 1 つ）
+
+#### トレイが管理対象 Codex カードに紐づいた ChatGPT アカウントの残量を表示します
+
+[#6537](https://github.com/farion1231/cc-switch/pull/6537) 以降、トレイは管理対象 ChatGPT アカウントに紐づいた Codex 公式カードの使用量サフィックスを意図的に外していました。Codex CLI の現在のログイン（まず macOS Keychain、次に `auth.json`）が供給するアプリ全体のサブスクリプションキャッシュしか持たず、複数アカウントを紐づけた後ではアカウント単位の残量を安全に表せなかったからです。プロバイダカードは紐づいたアカウントを照会していましたが、その結果はトレイに届かず、複数の ChatGPT ログインを持つユーザーには残量のない `Codex · <名称>` だけが見えていました。使用量キャッシュにアカウントをキーとする Codex OAuth スナップショット表が加わり、残量の照会はそこへ書き抜けます——転送エラーは直前の良いスナップショットを保ち、認証/HTTP の失敗はそれを置き換えるため、トレイは古い残量を出す代わりに無効な残量を隠します——書き込みのたびにトレイの更新を 1 回予約します。更新と表示は 1 つの `TrayUsageSource` の判定を共有します：管理対象 Codex カードは紐づいたアカウントのスナップショットだけを読み（プロバイダ単位や CLI のスナップショットへ決してフォールバックしません）、使用量トグルが保存されていなければ既定で有効とみなし（プロバイダカードと揃えます）、紐づけを持つ固定の公式カードも管理対象の経路を通ります。紐づけ直すと即座に新しいアカウントのスナップショットへ切り替わり、前のアカウントの遅れて届いた応答がラベルを上書きすることはありません。（[#7267](https://github.com/farion1231/cc-switch/issues/7267) を修正）
+
+#### DeepSeek の Codex カタログが視覚対応の `deepseek-flash` をミラーします
+
+内蔵の DeepSeek 公式 Codex カタログはベンダー現行の `models.json`（slug `deepseek-flash`、画像入力モダリティ、`supports_image_detail_original`）へ刷新され、`deepseek-v4-flash` はテキスト専用の確認済みリストから外れます：DeepSeek はこの旧 id をいまも受け付け、視覚対応の V4.1 Flash へルーティングするため、プロキシのメディアサニタイザーと生成される Codex カタログはこの id に対して fail-open するようになり、画像を `[Unsupported Image]` に置き換えたり、Codex から画像入力を隠したりしません。（[#7286](https://github.com/farion1231/cc-switch/pull/7286)、[#7283](https://github.com/farion1231/cc-switch/issues/7283) を修正）
+
+#### サードパーティ Token Plan の DeepSeek V4 行がテキスト専用を明示的に宣言します
+
+公式エンドポイントが `deepseek-v4-flash` を視覚モデルへルーティングした後、この id はどこでも fail-open しますが、Baidu Qianfan と Tencent Token Plan はいまもテキスト専用の V4 デプロイをホストしています——Qianfan の Coding Plan ドキュメントは画像入力が 400 を返すと明記し、Tencent の 2026-09-10 のプラン一覧は V4 しか挙げていません。これらの Codex プリセット行（flash と pro の 2 系統、`-0731`/`-0813`/`-202605`/`-202606` を含む）は、レジストリに頼る代わりに `inputModalities: ["text"]` を明示的に宣言するようになりました。プリセットのテストは同時に、公式 DeepSeek プリセットが宣言しないまま（fail-open）であることも固定します。（[#7283](https://github.com/farion1231/cc-switch/issues/7283) の後続）
+
+---
+
+### アップグレード時の注意
+
+#### 本リリースにデータベースマイグレーションは含まれません
+
+スキーマバージョンは 18 のままです。Codex のバイトカーソルは既存の `session_log_sync.last_byte_offset` 列を再利用します。
+
+#### アップグレード後に Codex の rollout は一度だけ再解析されます
+
+Codex の行にはまだ保存されたバイト長がないため、最初の同期パスはすべてのプラットフォームで各 rollout を読み直します（CPU のみ。インポート済みのイベントは行オフセットでスキップされるため二重に数えられることはありません）。以後のパスは変わっていないファイルをスキップします。
+
+#### すでに上書きされたアプリ単位のプロキシ設定は自動では復元されません
+
+[#7210](https://github.com/farion1231/cc-switch/pull/7210) は書き潰しを止めましたが、以前のシャットダウンが Claude から Codex・Gemini・Grok Build へ書き写したリトライ/タイムアウトの値を取り戻すことはできません——プロキシ設定で一度確認し、ご自身の設定と食い違うものは戻してください。
+
+#### ユニバーサル同期は今後子カードの設定を保ちます
+
+以前の同期がすでに消してしまった設定（使用量スクリプト、共通設定のオプトアウト、エンドポイント自動選択、並び順の位置）は、一度入れ直す必要があります。
+
+#### `model_provider` を書いていない Codex カードは引き継ぎ時にローカルプロキシを経由します
+
+[#7263](https://github.com/farion1231/cc-switch/pull/7263) 以降、この種のカードが `api.openai.com` へこっそり直接つながることはなくなり、他のサードパーティ引き継ぎと揃います。
+
+#### プリセット変更は新規作成のプロバイダにのみ影響します
+
+既存カードは作成時のスナップショットを保持します。本リリースで該当するのは：Kimi の 2 つの Codex プリセット——既存の Kimi カードは依然として `openai_chat` で、ルーティング経由で引き続き使えます。直接接続したい場合はカードの上流フォーマットを Responses に変更するか、プリセットを再インポートしてください（Kimi オープンプラットフォームの Tier 0 キーは 3 リクエスト/分に制限され、複数リクエストのツールループを回しきれない点に注意）。そのほか、アグリゲーターの Codex カタログ、千问AI平台 の改名と Qwen 3.8（Pi の QwenCloud Token Plan のプロトコル切り替えを含む）、MiniMax M3 の既定値、Volcengine Doubao の表示名、そして Qianfan/Tencent Token Plan の DeepSeek 行のテキスト専用宣言（これらのプリセット上の既存カードは、引き続きエラー時に画像を剥がして再試行するか、プリセットを再インポートしてください）。
+
+#### Codex のカタログ系修正は次回のプロバイダ切り替え時に有効になります
+
+カタログファイルは切り替え時に再生成されます：本リリースでは DeepSeek 公式カタログの `deepseek-flash` 視覚エントリ（[#7286](https://github.com/farion1231/cc-switch/pull/7286)）です。DeepSeek のカードで一度切り替えて戻してください。
+
+#### 料金
+
+`deepseek-flash` と `deepseek-v4-flash-vision-exp` は新しいシード行のため、起動時の補填がこれらの id で以前 $0 として記録された履歴リクエストに価格を付けます。`deepseek-v4-flash` / `-0731` / `-pro` の修復は、シードのピーク段階の値（0.44/1.32/0.014 と 1.32/3.96/0.044）のままの行だけを訂正します。カスタマイズ済みの行は触らず、過去のコストは再計算*しません*。V4 Pro の調整は DeepSeek の 2026-09-14 の切り替えより先に着地するため、それ以前の V4 Pro リクエストは Flash 価格で計上されます。`deepseek-chat` と `deepseek-reasoner` は元の値のままです。
+
+#### Anthropic クライアントが Responses 上流へ `max_tokens` 1–15 で探るとき 16 を送るようになりました
+
+設定は不要です。
+
+#### Chat 上流の Codex カードはアップグレード後に一度だけプレフィックスキャッシュを外します
+
+[#7280](https://github.com/farion1231/cc-switch/pull/7280) でまとめられた commentary ＋ツール呼び出しメッセージによって、リクエストのバイト列が一度だけ変わります。その後は形がターンごとに安定します。
+
+#### 管理対象 Codex カードは既定でトレイに残量を表示します
+
+使用量トグルを保存したことがなければ既定で表示し、プロバイダカードと揃います。カードの使用量トグルをオフにすれば隠せます。
+
+---
+
+### リスク通知
+
+#### 継続してお伝えしている注意事項
+
+**xAI Grok OAuth サインイン**：公式 Grok CLI の公開 OAuth クライアント識別情報を再利用しており、利用によってアカウントの制限や停止につながる恐れがあります——詳細は [v3.18.0 release notes](/ja/changelog/3.18.0#リスク通知) を参照してください。
+
+**Codex OAuth リバースプロキシ**：ChatGPT サブスクリプションの Codex OAuth をリバースプロキシ経由で使用すると、OpenAI の利用規約に違反する可能性があります。詳細は [v3.13.0 release notes](/ja/changelog/3.13.0#リスクに関する注意事項) を参照してください。
+
+**SuperGrok の残量照会**：プロバイダカードの残量表示は grok.com の非公開の課金エンドポイントに依存しており、xAI がインターフェースを変更すると機能しなくなる可能性があります——詳細は [v3.19.0 release notes](/ja/changelog/3.19.0#リスク通知) を参照してください。
+
+**サードパーティプロバイダへのルーティング**：CC Switch のローカルプロキシで Codex・Claude Desktop・Grok Build のリクエストを変換してサードパーティのプロバイダへ転送する場合、課金・コンプライアンス・データ保持に関する制約はプロバイダごとに異なります。利用前に対象プロバイダの利用規約をお読みください。
+
+上記の機能を有効にした時点で、ユーザーは関連するリスクを自ら引き受けることになります。CC Switch は、これらの機能の利用に起因するアカウントの制限・警告・サービス停止について、一切の責任を負いません。
+
+---
+
+### 謝辞
+
+本リリースの 22 コミットのうち 11 は 8 名の外部コントリビューターによるものです。
+
+#### コード貢献
+
+- @gongzhenhu さんに感謝します：空の `reasoning_content` プレースホルダーの除外（[#7227](https://github.com/farion1231/cc-switch/pull/7227)、[#5028](https://github.com/farion1231/cc-switch/issues/5028)・[#4404](https://github.com/farion1231/cc-switch/issues/4404) を修正）、初コントリビューションです。同じ問題には @AdJIa さん（[#4869](https://github.com/farion1231/cc-switch/pull/4869)）、@U1traTC さん（[#6421](https://github.com/farion1231/cc-switch/pull/6421)）、@Hypocrite000 さん（[#6576](https://github.com/farion1231/cc-switch/pull/6576)）もそれぞれより早く修正を提案していました。
+- @fszcd さんに感謝します：Codex の commentary とツール呼び出しの統合（[#7280](https://github.com/farion1231/cc-switch/pull/7280)、[#6529](https://github.com/farion1231/cc-switch/issues/6529) を修正）、初コントリビューションです。@BigStrongSun さんはこの問題をご自身で報告し [#6530](https://github.com/farion1231/cc-switch/pull/6530) で修正を提出され、@xu-xiang さんも [#5895](https://github.com/farion1231/cc-switch/pull/5895) で試みられていました。
+- @SailingLoong さんに感謝します：Claude Desktop のプローブの `max_tokens` を 16 へ切り上げる修正（[#7287](https://github.com/farion1231/cc-switch/pull/7287)、[#7103](https://github.com/farion1231/cc-switch/issues/7103) を修正）と DeepSeek の視覚カタログのミラー（[#7286](https://github.com/farion1231/cc-switch/pull/7286)、[#7283](https://github.com/farion1231/cc-switch/issues/7283) を修正）。プローブの切り上げについては @John1Tang さんも [#7126](https://github.com/farion1231/cc-switch/pull/7126) でより早く修正を提案されていました。
+- @Komikawayi さんに感謝します：修正 3 件——終了時にアプリ単位のプロキシ設定を書き潰す問題（[#7210](https://github.com/farion1231/cc-switch/pull/7210)、[#7204](https://github.com/farion1231/cc-switch/issues/7204) を修正）、ユニバーサルプロバイダの同期での子カードのメタデータ保持（[#7212](https://github.com/farion1231/cc-switch/pull/7212)、[#7134](https://github.com/farion1231/cc-switch/issues/7134) を修正）、Codex に `model_provider` がないときのプロキシアドレスの尊重（[#7263](https://github.com/farion1231/cc-switch/pull/7263)、[#6256](https://github.com/farion1231/cc-switch/issues/6256) を修正）。
+- @woniuxiaoshu さんに感謝します：Codex 使用量の永続バイトカーソル（[#7219](https://github.com/farion1231/cc-switch/pull/7219)、[#6060](https://github.com/farion1231/cc-switch/issues/6060) を修正）、初コントリビューションです。同じ問題には @LimiChan-2026 さん（[#6080](https://github.com/farion1231/cc-switch/pull/6080)、#6060 の報告者でもあります）、@woshimaxfive さん（[#6027](https://github.com/farion1231/cc-switch/pull/6027)、[#6023](https://github.com/farion1231/cc-switch/issues/6023) で Windows での同じ現象も報告されています）、@puppnn さん（[#6246](https://github.com/farion1231/cc-switch/pull/6246)）もそれぞれより早く修正を提案していました。
+- @thisTom さんに感謝します：Codex 画像生成の 3 件の後続修正（[#7177](https://github.com/farion1231/cc-switch/pull/7177)）、ご自身の [#7036](https://github.com/farion1231/cc-switch/pull/7036) を引き継いだものです。
+- @shigzz さんに感謝します：千问AI平台 への改名と Qwen 3.8 への更新（[#7183](https://github.com/farion1231/cc-switch/pull/7183)）、初コントリビューションです。
+- @jellyjelly814 さんに感謝します：MiniMax M3 の既定値と期限切れ特典の整理（[#7255](https://github.com/farion1231/cc-switch/pull/7255)）。[#7254](https://github.com/farion1231/cc-switch/issues/7254) を自ら報告し自ら修正、初コントリビューションです。M3 を既定にする更新は @octo-patch さんが [#3567](https://github.com/farion1231/cc-switch/pull/3567) でより早く提案されており、M3 の料金とモダリティは [#6396](https://github.com/farion1231/cc-switch/pull/6396) にあります。
+
+#### 問題報告
+
+- 空の thinking ブロックの氾濫とコンテンツブロックの断片化を報告してくださった @Sunshine-SACA さんと @snowing0427 さん（[#5028](https://github.com/farion1231/cc-switch/issues/5028)、[#4404](https://github.com/farion1231/cc-switch/issues/4404)）、そして #4404 で v3.20.0 上の ModelScope Qwen3-Coder での再現を補足してくださった @csj-ccc さんに感謝します。
+- Responses→Chat 変換が assistant のターンを割ってしまう件を報告してくださった @BigStrongSun さんと @aducker2016 さん（[#6529](https://github.com/farion1231/cc-switch/issues/6529)、[#5860](https://github.com/farion1231/cc-switch/issues/5860)）に感謝します——後者は DeepSeek が無限に繰り返す現象が同じ根本原因であることを突き止めてくださいました。
+- Claude Desktop のプローブが Responses 上流で 400 になる件を報告してくださった @haoyubai212 さん（[#7103](https://github.com/farion1231/cc-switch/issues/7103)）に感謝します。
+- DeepSeek の画像が `[Unsupported Image]` に置き換えられ、カタログがテキスト専用を宣言していた件を報告してくださった @HEYUESAMA さん（[#7283](https://github.com/farion1231/cc-switch/issues/7283)）に感謝します。
+- 再起動後に Codex のフェイルオーバー設定が Claude のもので上書きされる件を報告してくださった @Jason-purse さん（[#7204](https://github.com/farion1231/cc-switch/issues/7204)）に感謝します。
+- ユニバーサルプロバイダの同期で使用量照会などの設定が効かなくなる件を報告してくださった @auqhjjqdo さん（[#7134](https://github.com/farion1231/cc-switch/issues/7134)）に感謝します。
+- Codex が `api.openai.com` へ直接つながりローカルルーティングを迂回する件を報告してくださった @pemagic さん（[#6256](https://github.com/farion1231/cc-switch/issues/6256)）と、同じ現象が Codex 0.153.x でどう現れるかを [#7217](https://github.com/farion1231/cc-switch/issues/7217) に記録してくださった @Tiacoo さんに感謝します。
+- Windows で Codex の使用量が取りこぼされる件を報告してくださった @LimiChan-2026 さんと @MoEternal さん（[#6060](https://github.com/farion1231/cc-switch/issues/6060)、[#7264](https://github.com/farion1231/cc-switch/issues/7264)）に感謝します。
+- 複数の ChatGPT アカウントを紐づけるとトレイに残量が出ない件を報告してくださった @ringzxw さん（[#7267](https://github.com/farion1231/cc-switch/issues/7267)）に感謝します。
+
+---
+
+### ダウンロードとインストール
+
+[Releases](https://github.com/farion1231/cc-switch/releases/latest) からお使いのシステムに合ったビルドをダウンロードするか、公式サイト [ccswitch.io](https://ccswitch.io) から入手してください（ダウンロードは Cloudflare のエッジノード経由で配信され、GitHub への到達性に依存しません）。
+
+#### システム要件
+
+| システム | 最低バージョン           | アーキテクチャ                      |
+| -------- | ------------------------ | ----------------------------------- |
+| Windows  | Windows 10 以降          | x64 / ARM64                         |
+| macOS    | macOS 12 (Monterey) 以降 | Intel (x64) / Apple Silicon (arm64) |
+| Linux    | 下表参照                 | x64 / ARM64                         |
+
+#### Windows
+
+| ファイル                                 | 説明                                             |
+| ---------------------------------------- | ------------------------------------------------ |
+| `CC-Switch-v3.20.3-Windows.msi`          | **推奨** - MSI インストーラ、自動更新対応        |
+| `CC-Switch-v3.20.3-Windows-Portable.zip` | ポータブル版、解凍してすぐ使用、レジストリ不使用 |
+
+Windows ARM64 デバイスでは、ファイル名に `arm64` を含む成果物を選んでください。
+
+#### macOS
+
+| ファイル                         | 説明                                                 |
+| -------------------------------- | ---------------------------------------------------- |
+| `CC-Switch-v3.20.3-macOS.dmg`    | **推奨** - DMG インストーラ、Applications へドラッグ |
+| `CC-Switch-v3.20.3-macOS.zip`    | 解凍後 Applications へドラッグ、Universal Binary     |
+| `CC-Switch-v3.20.3-macOS.tar.gz` | Homebrew でのインストールと自動更新用                |
+
+Homebrew でのインストール：
+
+```bash
+brew install --cask cc-switch
+```
+
+アップデート：
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux の成果物は **x86_64** と **ARM64**（`aarch64`）の両アーキテクチャで提供されます。ファイル名のアーキテクチャ表記を、お使いのマシンの `uname -m` の出力に合わせて選んでください：
+
+- `CC-Switch-v3.20.3-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.3-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| ディストリビューション                  | 推奨形式    | インストール方法                                                           |
+| --------------------------------------- | ----------- | -------------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`      | `sudo dpkg -i CC-Switch-*.deb` または `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`      | `sudo rpm -i CC-Switch-*.rpm` または `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`      | `sudo zypper install ./CC-Switch-*.rpm`                                    |
+| Arch Linux / Manjaro                    | `.AppImage` | 実行権限を付与して直接実行、または AUR を利用                              |
+| その他 / 不明な場合                     | `.AppImage` | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`                  |
+
+## [3.20.2] - 2026-09-07
+
+> 本リリースも Codex が主軸ですが、形は前回の「ひとつの再設計」から「互換性修正の一群」へ変わりました。**Grok がついに xAI ネイティブ Responses API 経由で Codex ルーティング下で動きます**——xAI が拒否するツールスキーマ、Codex が拒否する整数値の浮動小数、マルチエージェントが注入するメールボックスメッセージ、xAI が知らない Codex のロールモデル、という 4 つの壁をひとつずつ取り払いました。その周辺には「一因一果」の修正群：Grok OAuth カードが v3.20.1 の切り替えゲートに誤って拒否されなくなり、引き継ぎが Codex をログイン画面に閉じ込めなくなり、GPT-6 を Codex OAuth で使うときの「Codex を更新してください」が消え、Claude Code は Codex OAuth 上で並列ツール呼び出しを取り戻し、組み込みの画像生成がローカルルーティングで動き、4 件のカタログ欠陥（旧版 Codex の読み込み拒否、DeepSeek 下で MCP ツールが全部隠れる、視覚モデルがテキスト専用と判定される、Kimi のツールスキーマ 400）が閉じ、Zhipu GLM プリセットは公式 Responses エンドポイントを指すようになりました。使用量側では、Codex の resume 後に統計が止まる問題と、プロキシが毎ターンプレフィックスキャッシュを壊す問題の 2 つの根本修正が入りました。プリセットには Tencent Cloud Token Plan・QwenCloud・AICodeWith と、スポンサーの 9527CODE・SoleAPI が加わり、料金表には 7 つの新モデルと 9 月の価格改定が反映されました。**本リリースにデータベースマイグレーションは含まれません。**
+
+### ハイライト：本リリースでできること
+
+- **Codex で xAI ネイティブ Responses 経由で Grok を使う**（[#6917](https://github.com/farion1231/cc-switch/pull/6917)、[#6815](https://github.com/farion1231/cc-switch/issues/6815) を修正）：xAI が拒否する Codex Desktop のツールスキーマは折りたたまれ、Grok が返す整数値の浮動小数は書き換えられ、マルチエージェントのサブタスクの `agent_message` は通常のメッセージに変換され、`gpt-5.6-sol` のようなロールモデルは設定済みの Grok モデルにマッピングされます——サブエージェントはもう 422 にならず、ツール呼び出しも拒否されません。
+- **Grok OAuth カードを普通に切り替え、普通に引き継ぐ**：v3.20.1 のキーなし安全ゲートは、プロキシがトークンを注入する OAuth カードを誤って拒否していました。直接切り替えで `auth.json` を削除した後に引き継ぎを有効にしても、Codex がログイン画面に閉じ込められることはなくなりました。
+- **GPT-6 を Codex OAuth 引き継ぎで使う**（[#7132](https://github.com/farion1231/cc-switch/pull/7132)）：自己申告する Codex クライアントバージョンが 0.153.4 に上がり、ChatGPT バックエンドに「Codex を更新してください」と拒否されなくなりました。
+- **Claude Code に Codex OAuth 上で並列ツール呼び出しをさせる**（[#7024](https://github.com/farion1231/cc-switch/pull/7024)、[#5719](https://github.com/farion1231/cc-switch/issues/5719) を修正）：`parallel_tool_calls` の既定が true になり、1 ターンにツール呼び出し 1 回という制限はなくなりました。
+- **Codex ルーティング下で組み込みの画像生成と編集を使う**（[#7036](https://github.com/farion1231/cc-switch/pull/7036)、[#5429](https://github.com/farion1231/cc-switch/issues/5429)・[#6745](https://github.com/farion1231/cc-switch/issues/6745) を修正）：`/images/generations` と `/images/edits` の 2 ルートがローカルプロキシを透過し、使用量はトークン単位で計上されます。
+- **DeepSeek ネイティブプリセットで MCP ツールを見る**（[#6653](https://github.com/farion1231/cc-switch/pull/6653)、[#6647](https://github.com/farion1231/cc-switch/issues/6647) を修正）：カタログは DeepSeek が対応していない `tool_search` を宣言しなくなり、MCP ツールはそのまま一覧に出ます。
+- **Codex デスクトップ版からローカルプロキシ経由で Kimi/Moonshot に接続しても必ず 400 になることはもうない**（[#6863](https://github.com/farion1231/cc-switch/pull/6863)、[#6867](https://github.com/farion1231/cc-switch/issues/6867) を修正）：兄弟キーワードを伴う `$ref` は Moonshot ドメインに限って `allOf` に書き換えられ、他のプロバイダのスキーマはバイト単位で不変です。
+- **Zhipu GLM を Codex から直接接続する**（#6957、[#6944](https://github.com/farion1231/cc-switch/issues/6944) を修正）：プリセットは公式 Responses エンドポイント `/api/v1`・既定 glm-5.3 を指すようになりました。既存カードは再インポートが必要です。
+- **resume の後も使用量を積算し続ける**（[#6905](https://github.com/farion1231/cc-switch/pull/6905)、[#6904](https://github.com/farion1231/cc-switch/issues/6904) を修正）：revert したスレッドを再開したときに書かれる二重 UUID の rollout ファイルが恒久的に隔離されることはなくなり、溜まっていた使用量は元の日付に補填されます。
+- **OpenAI 形式の上流でプレフィックスキャッシュに再びヒットする**（[#6941](https://github.com/farion1231/cc-switch/pull/6941)、[#6789](https://github.com/farion1231/cc-switch/issues/6789) を修正）：Claude Code が毎ターン注入する会話途中の system メッセージは会話の先頭に統合されなくなり、DeepSeek・GLM・Kimi のようなエンドポイントでキャッシュヒット率が 99% から 20% へ落ちることはなくなりました。
+- **新しいプロバイダをワンクリックで追加する**：Tencent Cloud Token Plan（6 アプリ、[#7011](https://github.com/farion1231/cc-switch/pull/7011)）、QwenCloud（7 アプリ、[#6214](https://github.com/farion1231/cc-switch/issues/6214)）、AICodeWith（8 アプリ）、スポンサーの 9527CODE と SoleAPI（9 アプリ）。Pi には Tencent TokenHub / Token Plan（[#7159](https://github.com/farion1231/cc-switch/pull/7159)）と PPIO（[#6870](https://github.com/farion1231/cc-switch/pull/6870)）が加わりました。
+- **Fable 5.1 / Mythos 5.1、GPT-6 Astra、GLM-5.3、Gemini 3.8 Flash の実コストを見る**：これらのリクエストはこれまで $0 で計上されていました。Sonnet 5 は Anthropic の正式価格に合わせて $2/$10 に戻ります。
+- **Hermes のアップグレードボタンを再び見る**：最新バージョンは GitHub Releases から読むようになり、PyPI の 0.19.0 に永遠に止まることはなくなりました。
+
+---
+
+### 利用ガイド
+
+- **[プロバイダの追加](/ja/docs?section=providers&item=add)**：新プリセットのインポート入口と、「プリセット変更は新規プロバイダにのみ影響する」の意味。
+- **[リクエストルーティング](/ja/docs?section=proxy&item=routing)**：xAI ネイティブ Responses 経由の Grok と Codex 画像エンドポイントの透過は、いずれもこの経路を通ります。
+- **[使用量統計](/ja/docs?section=proxy&item=usage)**：料金表の補填と resume 後の溜まった使用量の計上基準。
+
+---
+
+> [!WARNING]
+>
+> ## 唯一の公式チャネル（必ずお読みください）
+>
+> CC Switch は**完全に無料・オープンソース**のデスクトップアプリで、**ユーザーから料金を徴収することはありません**。本ソフトウェアは下記の公式チャネルからのみ入手してください：
+>
+> | チャネル     | 唯一の公式                                                                     |
+> | ------------ | ------------------------------------------------------------------------------ |
+> | 公式サイト   | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | ソースコード | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | ダウンロード | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | 作者         | **[@farion1231](https://github.com/farion1231)**                               |
+> | 偽サイト通報 | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **料金請求・チャージ・認証情報の提供を求める「CC Switch」サイトやクライアントはすべて偽物です。** 支払いを誘導された場合は直ちに操作を中止し、GitHub Issues からご報告ください。
+
+---
+
+### 概要
+
+v3.20.1 以降の開発も Codex が牽引していますが、今回は再設計ではなく互換性修正の一群です。最も長い線は Grok です。xAI のネイティブ Responses API は数か所で Codex の前提と食い違います——サンプリング前に Codex Desktop のツールスキーマを拒否し、Grok が返す JSON の整数には小数点が付いていて Codex のパーサーが拒否し、Codex のマルチエージェントモードが注入する `agent_message` メールボックス項目を xAI はデシリアライズできず、Codex 自身のロールモデル（`gpt-5.6-sol` など）は xAI で即 404 になります。本リリースはこの 4 つの壁を同じネイティブ Responses ゲートの内側でひとつずつ取り払い、Grok はサブエージェントを含めて Codex ルーティング下で完全に動くようになりました。
+
+その周辺には「一因一果」の修正群があります。v3.20.1 で導入したキーなし安全ゲートは、プロキシがトークンを注入する Grok OAuth カードを誤って拒否していました。直接切り替えで `auth.json` を削除した後に引き継ぎを有効にすると、古い `requires_openai_auth = true` のせいで Codex がログイン画面に閉じ込められました。GPT-6 を Codex OAuth 引き継ぎで使うとクライアントバージョンが古いとしてバックエンドに拒否されました。Claude Code は Codex OAuth 上でツール呼び出しを直列に強制されていました。組み込みの画像生成はローカルルーティング下で 404 でした。4 件のカタログ欠陥——旧版 Codex がカタログを読み込めない、DeepSeek プリセット下で MCP ツールがすべて隠れる、DeepSeek の視覚モデルがテキスト専用と判定される、Kimi のツールスキーマが必ず 400 になる——はそれぞれ閉じました。Zhipu GLM プリセットは Chat エンドポイントから公式 Responses エンドポイントへ移りました。使用量側の根本修正は 2 件：Codex の resume 後に統計が黙って止まる問題と、Claude Code が毎ターン注入する会話途中の system メッセージをプロキシが先頭へ統合して上流のプレフィックスキャッシュを壊していた問題です。
+
+プリセットライブラリには Tencent Cloud Token Plan・QwenCloud・AICodeWith とスポンサーの 9527CODE・SoleAPI が加わり、Pi には Tencent と PPIO が加わりました。料金表には 7 つの新モデル行が追加され、各ベンダーの 9 月の公式価格ページに合わせた改定が入りました。本リリースはデータベーススキーマを変更しません。
+
+**リリース日**：2026-09-07
+
+**変更規模**：52 commits | 71 files changed | +10,483 / -573 lines
+
+---
+
+### 新機能
+
+#### 新しいプリセット
+
+Tencent Cloud Token Plan（6 製品 × 6 アプリ、[#7011](https://github.com/farion1231/cc-switch/pull/7011)）、QwenCloud（3 プラン × 7 アプリ、[#6214](https://github.com/farion1231/cc-switch/issues/6214)）、AICodeWith（8 アプリ）、スポンサー 2 社の 9527CODE と SoleAPI（9 アプリ）がプリセットライブラリに加わりました。Pi には Tencent TokenHub / Token Plan（[#7159](https://github.com/farion1231/cc-switch/pull/7159)）と PPIO（[#6870](https://github.com/farion1231/cc-switch/pull/6870)）が加わりました。既存のプロバイダは影響を受けません。再インポートが必要なケースはアップグレード時の注意を参照してください。
+
+#### 7 つの新モデルの料金行
+
+Claude Fable 5.1 と Mythos 5.1：100 万トークンあたり $10/$50、キャッシュ読み取り $0.25、キャッシュ書き込み $12.50（[#7051](https://github.com/farion1231/cc-switch/pull/7051)、[#7050](https://github.com/farion1231/cc-switch/issues/7050) を修正）——これまで行がなく、これらのリクエストはすべて $0 で計上されていました。プレフィックス規則は日付付きのより長い id しか探さず、`claude-fable-5` へフォールバックできないためです。GLM-5.3：$1.40/$4.40、キャッシュ読み取り $0.26、Z.ai の公式価格と一致（[#6591](https://github.com/farion1231/cc-switch/pull/6591)）。GLM-5.3 Flash：$0.15/$0.50、キャッシュ読み取り $0.03（[#7163](https://github.com/farion1231/cc-switch/pull/7163)）。GPT-6 Astra：$10/$50、キャッシュ読み取り $1、キャッシュ書き込み $12.50、low/medium/high/xhigh の接尾辞は基本行へフォールバック（[#7162](https://github.com/farion1231/cc-switch/pull/7162)）。Gemini 3.8 Flash：$0.75/$3.75、キャッシュ読み取り $0.075、キャッシュ書き込み料金なし（[#7164](https://github.com/farion1231/cc-switch/pull/7164)）。Qwen3.8 Flash：$0.15/$0.47、1M ウィンドウ内は段階なし、キャッシュ読み取り/書き込み $0.016/$0.20。いずれもシード行のみでスキーマは変わりません。既存インストールは次回起動時に取り込み、起動時のコスト補填がこれらの id で $0 として記録されていた履歴行に価格を付けます。
+
+---
+
+### 変更
+
+#### 2026 年 9 月の価格改定
+
+Sonnet 5 は $2/$10 に戻ります——Anthropic の価格ページには導入価格がそのまま標準価格であると明記され、9 月 1 日に $3/$15 へ引き上げる計画は実施されません——ガード修正つきです：シード値 3/15/0.30/3.75 のままのインストールは訂正され、ユーザーがカスタマイズした行は触りません（[#7051](https://github.com/farion1231/cc-switch/pull/7051)）。GPT-5.6 Sol、裸の `gpt-5.6` とその 5 つの段階接尾辞行は $5/$30（キャッシュ読み取り $0.50、書き込み $6.25）からプロモーション価格 $4/$20（キャッシュ読み取り $0.40、書き込み $5）へ下がり、少なくとも 2026-11-21 まで続きます。Gemini 3.6 Flash は $1.50/$7.50/$0.15 から 3.8 Flash と同じ導入価格 $0.75/$3.75/$0.075 へ下がり、2026-12-31 までです。MiniMax M2・M2.1・M2.5 は公式の従量価格 $0.30/$1.20、キャッシュ読み取り $0.03、キャッシュ書き込み $0.375 に統一されました——後者はこれまでゼロとして記録されていました。各改定はシードと旧値をガードとする修復エントリの組で、既存のチェーンの後ろに追加されるため、古いデータベースは中間価格を段階的に経由します。
+
+---
+
+### 修正
+
+#### Grok が xAI ネイティブ Responses API 経由で Codex ルーティング下で動くようになりました
+
+一連のコントリビューターコミットが、ネイティブ Responses から xAI へ至る経路上の互いに独立した 4 つの障害を閉じました。xAI はサンプリング前に Codex Desktop の組み込みツールスキーマを拒否するため、リクエスト経路でルートレベルの `oneOf`/`anyOf` 関数パラメータを折りたたみます（[#6815](https://github.com/farion1231/cc-switch/issues/6815)）。各分岐の required は和集合ではなく積集合を取り、平坦化した `oneOf` が選択した分岐にないフィールドを要求することはありません。Grok が返す JSON の整数には小数点が付いていて Codex のパーサーは整数として拒否するため、完了した `function_call` 引数内の整数値の浮動小数を書き換えます（ちょうど 2^64 は黙って 1 ずれた値に書き換える代わりに明示的に拒否します）。Codex のマルチエージェントモードが注入する `agent_message` メールボックス項目を xAI はデシリアライズできず、各サブタスクはツールが動く前に 422 になっていたため、これらの項目は通常の user メッセージに書き換え、暗号化コンテンツはテキストに平坦化します。xAI は Codex のロールモデル（`gpt-5.6-sol` など）を即 404 にするため、未知のリクエストモデルはプロバイダに設定されたモデルへマッピングします（カタログ内の `grok-4.5` などと `grok` 接頭辞の id はそのまま通します）。マッピングはサニタイズより先に実行され、grok-4.5 に着地したサブエージェントも非対応のサンプリングフィールドを剥がされます。すべてのロジックはネイティブ Responses ゲートの内側の独立モジュールに収められ、上流が同じケースをカバーするまで rebase や cherry-pick が容易です。grok-4.5 の xAI プリセットは low/medium/high/xhigh を宣言するようになりました：2026-08-30 の実測でこのエンドポイントはこの 4 段階を受け付け、`max` には HTTP 400 を返し、Codex はカタログ外の段階を範囲内に丸めません。（[#6917](https://github.com/farion1231/cc-switch/pull/6917)）
+
+#### Grok OAuth へ切り替える Codex カードが拒否されなくなりました
+
+v3.20.1 の config-only 切り替えリファクタリングはキーなし安全ゲートをすべての書き込み経路に広げ、プロキシ管理の OAuth カード（xAI Grok OAuth）を巻き込みました。これらは設計上キーを持たず——ローカルプロキシがリクエストごとに本物のトークンを注入します——プリセットのスナップショットは 0.149 以前のテンプレートから `requires_openai_auth = true` を継承していたため、ゲートはそれを「公式ログインへフォールバックする」と読んで切り替えを拒否していました。修正はゲートの例外ではなくスナップショット側です：プロキシがトークンを注入する OAuth プロバイダ（xAI OAuth と GitHub Copilot。Codex OAuth は意図的に除外——公式ログインこそがその認証情報だからです）について、アクティブなカスタムテーブルのこのフラグを `false` に強制します。共有の有効プロバイダビルダーに組み込まれているため、事前検証・通常の書き込み・プロキシのバックアップ/引き継ぎ投影が同じ形を見ることになり、Codex 0.149 は `auth.json` を読まずに未認証と判定します。プリセットのソースは最初から `false` を出力するようになり、既存カードは次の切り替え時に自己修復します。
+
+#### 引き継ぎが Codex をログイン画面に閉じ込めなくなりました
+
+「直接切替時に公式ログインを保持」がオフ（既定）のとき、サードパーティプロバイダへの直接切り替えは `~/.codex/auth.json` を削除します。その後にプロキシ引き継ぎを有効にすると、`config.toml` は保存済みカードから再構築されますが、カードには 0.149 以前の `requires_openai_auth = true` が残っており、Codex ≥ 0.149 はプロキシのプレースホルダー bearer token があってもログイン画面で止まっていました——引き継ぎ中に `codex logout` を実行してからホット切り替えしても同じ罠にはまります。引き継ぎライターは、Codex 自身が観測するログイン状態に従ってアクティブなカスタムテーブルのフラグを刻印するようになり、直接切り替えの計画と揃いました：まず Codex 自身の規則で認証モードを解決し（明示的な `auth_mode` が最優先、次に personal access token、Bedrock API キー、Bedrock アクセスキー、`OPENAI_API_KEY`、ChatGPT）、その後で認証情報と照合するため、期限切れの API キーの隣にある Bedrock 認証情報が OpenAI ログインへ格上げされることはありません。`auth.json` に触れる前に認証情報ストアを判定します——keyring と auto ストアはディスクから判定できないためカードの元の値を保持し、ephemeral ストアは常に未ログインとみなし、file ストアだけがファイルを読み、ファイルの欠落・読み取り不能・破損はいずれも未ログインとみなして引き継ぎ書き込みを失敗させません。プロキシがトークンを注入する OAuth カードはディスク上に何があっても中和済みの `false` を保ち、公式パススルーと管理対象公式の分岐は変更されません。
+
+#### 重複する管理対象 ChatGPT アカウントは拒否されます
+
+通常の管理対象アカウントのログインで、ChatGPT ワークスペース*と*安定したユーザー身元（id_token の subject）の両方が既存アカウントと一致する場合、2 件目の行を作る代わりにローカライズされたメッセージで拒否します。チェックはストレージロックの内側で実行されるため、同時に完了したログインが重複をすり抜けることはありません。リフレッシュロックは対象を絞った再認証のときだけ取得され、拒否された追加はロックエントリを残しません。同一ワークスペースの別ユーザーは引き続き共存できます。（[#7061](https://github.com/farion1231/cc-switch/pull/7061)）
+
+#### GPT-6 を Codex OAuth 引き継ぎで使うときに「Codex を更新してください」と拒否されなくなりました
+
+Claude から Codex OAuth へのルート上の `gpt-6-astra` リクエストは Codex 0.144.1 を自己申告していましたが、このモデルの最低クライアントバージョン 0.153.0 を下回るため、ChatGPT バックエンドは HTTP 400 を返していました。自己申告バージョンは 0.153.4 に上がり、originator とバージョン定数は生成とモデル発見の間で共有されます——後者はこれまで cc-switch 自身のパッケージバージョンと originator を送っていました。（[#7132](https://github.com/farion1231/cc-switch/pull/7132)、[#7129](https://github.com/farion1231/cc-switch/issues/7129) 関連）
+
+#### Claude Code が Codex OAuth 上で並列ツール呼び出しを取り戻しました
+
+Anthropic 由来のリクエストに明示的な値がないとき、Codex OAuth リクエストは `parallel_tool_calls` を false に既定しており、Claude Code は 1 ターンにツール 1 回の呼び出しを強制されていました。既定は true（codex-rs と一致）になり、Anthropic の `tool_choice.disable_parallel_tool_use` は Responses 側で反転値にマッピングされ、明示的な直列指定は引き続き尊重されます。[#5722](https://github.com/farion1231/cc-switch/pull/5722) を引き継いだものです。（[#7024](https://github.com/farion1231/cc-switch/pull/7024)、[#5719](https://github.com/farion1231/cc-switch/issues/5719) を修正）
+
+#### Codex の組み込み画像生成がルーティング下で使えます
+
+Codex の ImageGen ツールは旧来の OpenAI Images API を呼びますが、ローカルプロキシは Responses・Chat Completions・Compact・Alpha Search のルートしか登録しておらず、`/v1/images/generations` は空の 404 を返していました。generations のエイリアス（裸のパス、`/v1`、`/v1/v1`、`/codex/v1`）は Alpha Search と共有する Codex 専用の透過として転送されるようになりました。Alpha Search の完全 URL 書き換えは、完全な Responses/Compact/Chat URL から兄弟の Images URL を導出する形に一般化され（既存の Images URL はそのまま、不透明な完全 URL は fail-closed）、レスポンス内の入出力トークンは Codex の使用量パーサーで計上されます。後続のコミットで `/images/edits` が追加されました——ImageGen は既存の画像（明示的なパス、または直近に生成した N 枚）を参照するとすぐこちらへ切り替わり、これまでは空のルートに当たっていました。2 つのルートは 1 枚の接尾辞テーブルを共有するため、どちらか一方を完全 URL で設定したプロバイダはもう一方も導出できます。（[#7036](https://github.com/farion1231/cc-switch/pull/7036)、[#5429](https://github.com/farion1231/cc-switch/issues/5429)・[#6745](https://github.com/farion1231/cc-switch/issues/6745) を修正）
+
+#### 旧版 Codex が再びカタログを読み込めるようになりました
+
+Codex 0.144.5 から 0.148.0-alpha.15 は `supports_parallel_tool_calls` をカタログの必須フィールドとして宣言していますが、上流は 2026-08-14 にそれをモデル情報から削除しました——新版が更新した `models_cache.json` にはこのフィールドがなく、そこから複製した ProxyChat カタログは同じマシンの旧版 Codex に「missing field」として拒否されていました。このフィールドは必須補填リストに加わり、組み込みの gpt-5.5 テンプレートから値（true）を取ります。既存の値は決して上書きされず、新版は余分なキーを無視します。実バイナリで検証済み：旧カタログは 0.147.0 と 0.148.0-alpha.15 に拒否され、新カタログは両方と 0.148.0 で読み込めます。（[#6666](https://github.com/farion1231/cc-switch/pull/6666)、[#6661](https://github.com/farion1231/cc-switch/issues/6661)・[#6709](https://github.com/farion1231/cc-switch/issues/6709) を修正）
+
+#### DeepSeek ネイティブプリセットで MCP ツールが再び見えるようになりました
+
+同梱の公式カタログは deepseek-v4-pro と deepseek-v4-flash に `supports_search_tool = true` を宣言しており、Codex はこのフラグで MCP ツールを `tool_search` の後ろに遅延させるかを決めます——DeepSeek の Responses API は `tool_search` をそもそも提供していないため、すべての MCP ツールが隠され、ひとつも呼べませんでした。両モデルは false を宣言するようになり、Codex は MCP ツールをそのまま一覧に出します。ホスト型 web search はこのフラグではなくプロバイダ能力でゲートされるため影響を受けず、DeepSeek サーバー側のウェブ検索も従来どおり動きます。（[#6653](https://github.com/farion1231/cc-switch/pull/6653)、[#6647](https://github.com/farion1231/cc-switch/issues/6647) を修正）
+
+#### DeepSeek ミラーカタログの視覚モデルがテキスト専用と判定されなくなりました
+
+同梱の DeepSeek カタログにないモデルはフラッグシップのエントリを複製してそのテキスト専用の入力モダリティを継承し、`deepseek-v4-flash-vision-exp` のような視覚モデルは画像入力を失っていました。一致しないモデルは非ベンダー経路と同様にレジストリでモダリティを解決し、失敗時はそのまま通します。ユーザーが明示的に設定したモダリティは引き続き優先され、一致したモデルはベンダーの宣言をそのまま保持します。あわせて `glm-5.3` が確認済みテキスト専用リストに加わり、その `[1M]` バリアントは認識され、`glm-5.3v` には影響しません（[#6851](https://github.com/farion1231/cc-switch/pull/6851)）。（[#6750](https://github.com/farion1231/cc-switch/pull/6750)、[#6725](https://github.com/farion1231/cc-switch/issues/6725) を修正）
+
+#### Codex デスクトップ版からローカルプロキシ経由の Kimi/Moonshot がツールスキーマで必ず 400 になることはなくなりました
+
+Moonshot の Chat Completions バリデータ（`api.moonshot.cn`、`api.moonshot.ai`、Kimi For Coding エンドポイント `api.kimi.com`）は兄弟キーワードを伴う `$ref` を拒否し、Codex Desktop の組み込みツールスキーマはまさにその形です——ローカルプロキシ経由で Kimi にルーティングされたデスクトップのリクエストは毎ターン失敗していました。解決した上流ドメインが Moonshot/Kimi のとき、Responses から Chat への変換後に兄弟キーを持つ各 `$ref` を `allOf` へ移し、兄弟キーはその場に残します。走査はスキーマ値を持つキーワードにしか降りず、書き換えは冪等です。他のプロバイダのツールスキーマはバイト単位で不変で、Codex から Anthropic への経路は触りません——Moonshot の Anthropic 互換エンドポイントは元の形を受け付けます。（[#6863](https://github.com/farion1231/cc-switch/pull/6863)、[#6867](https://github.com/farion1231/cc-switch/issues/6867) を修正）
+
+#### Zhipu GLM の Codex プリセットが公式 Responses エンドポイントを指すようになりました
+
+Zhipu の各サイトのドキュメントは 3 つの Base URL——Anthropic `/api/anthropic`、Chat `/api/coding/paas/v4`、Responses `/api/v1`——を明記し、誤ったエンドポイントでは Coding Plan の枠を消費できないと警告しています。Codex 直接接続のガイドが指すのは Responses で、400 `unknown variant custom` は Chat エンドポイントの裏にある厳格な旧ゲートウェイ由来でした。「Zhipu GLM」と「Zhipu GLM (en)」プリセットは `/api/v1` 上のネイティブ Responses（シェルコマンド式の編集、freeform apply_patch は送らない）に変わり、公式モデル一覧を反映します：glm-5.3（1M ウィンドウ、low/high/max、既定 max）、中国サイトはさらに glm-5-turbo。glm-5.2 と `none` 段階は削除されました。ドメインフォールバックにより、「Chat 形式で保存されているが Base URL はすでにネイティブ Responses」の行は再保存なしで Responses カタログを得ます（Chat エンドポイントのパスは除外）。ベンダードメインは DNS ラベル境界で一致させるため、`z.ai` が `xyz.ai` を誤って捕まえることはなくなりました。`bigmodel.cn`、`z.ai`、`glm` 接頭辞は Codex ホスト型 web search の拒否リストに加わりました。（#6957、[#6944](https://github.com/farion1231/cc-switch/issues/6944) を修正）
+
+#### Codex の resume 後に使用量が止まらなくなりました
+
+スレッドが revert されると、Codex は 2 つの UUID を持つ置き換え rollout ファイル（`rollout-<ts>-<threadId>_<rolloutId>.jsonl`）を新規作成し、以後そのスレッドの resume はすべてそこに追記します。ファイルのルートメタデータは元のスレッド id を保持しますが、インポーターの整合性チェックはそれをファイル名末尾の UUID としか比較していませんでした——このようなファイルは恒久的に隔離され、ユーザーがそのスレッドを resume した時点から使用量の積算が黙って止まっていました（現場での再現：未インポートのトークン計数イベント 152 件、隔離警告が 60 秒ごとに繰り返し）。チェックは二重セグメントのファイル名の先頭 UUID に一致するメタデータ id も受け付けるようになりました。単一 UUID のファイル名は厳格なチェックを維持し、revert されたことのない通常のセッションは元々影響を受けていません。このようなファイルが保存するセッション id は、末尾の rollout id ではなく先頭の論理スレッド id——セッション一覧のキー——になりました。末尾の id は引き続き request id の接頭辞として働き、同じスレッドの複数セグメントが重複排除キーで衝突することを防ぎます。（[#6905](https://github.com/farion1231/cc-switch/pull/6905)、[#6904](https://github.com/farion1231/cc-switch/issues/6904) を修正）
+
+#### プレフィックスキャッシュが毎ターン壊されなくなりました
+
+Anthropic から OpenAI への変換はすべての system メッセージを会話の先頭に統合していましたが、Claude Code は毎ターン `<total_tokens>` メタデータを会話途中の system メッセージとして注入します——統合のせいでプレフィックスは毎ターン変わり、上流の radix プレフィックスキャッシュは無意味になっていました。トップレベルの system ブロックは引き続き先頭の 1 つの system メッセージに統合されます（ターンをまたいでバイト単位で安定）。メッセージ一覧内の system メッセージはその場に留まり、統合も並べ替えもされません。報告者は DeepSeek・GLM・Kimi のような OpenAI 形式のエンドポイントで、この問題によりヒット率が 99% から 20% に落ちることを実測していました。（[#6941](https://github.com/farion1231/cc-switch/pull/6941)、[#6789](https://github.com/farion1231/cc-switch/issues/6789) を修正）
+
+#### Hermes の「最新バージョン」を GitHub Releases から読むようになりました
+
+ツールパネルは PyPI に問い合わせていましたが、上流は 0.19.0（2026-07-20）以降そこへの公開をやめ、GitHub Releases のみで配布しています——ユーザーには「最新 0.19.0」が永遠に表示され、インストール済みバージョンより低いことも多く、アップグレードボタンは一度も現れませんでした。PyPI は cc-switch が Hermes をインストール・アップグレードする経路ではそもそもありません（公式インストールスクリプトも `hermes update` も git を使います）。探索はまず GitHub Releases を確認し、GitHub に到達できないかレート制限のときだけ PyPI へフォールバックします。タグはカレンダーバージョンのため、セマンティックバージョンはリリース名（`Hermes Agent v0.21.0 (v2026.8.31)`）から解析します。両経路ともカレンダー数値を拒否するため、`2026.8.31` が恒久的な「更新あり」として報告されることはありません。ローカルバージョンが先行している場合は PyPI のフォールバック値を隠します。両方の探索に 15 秒のタイムアウトを付け、共有クライアントの 600 秒は使いません——それは `api.github.com` がハングしたときに Hermes カードと更新/全部アップグレードボタンを固まらせていました。（[#6475](https://github.com/farion1231/cc-switch/issues/6475)・[#6618](https://github.com/farion1231/cc-switch/issues/6618)・[#7033](https://github.com/farion1231/cc-switch/issues/7033) 関連、[#6621](https://github.com/farion1231/cc-switch/pull/6621) を置き換え）
+
+#### 引き継ぎモードで Claude Code のモデルメニューに Opus 5 と Sonnet 5 が出るようになりました
+
+引き継ぎが Claude Code に書く安定したロールエイリアスは `claude-opus-4-8`/`claude-sonnet-4-6` から `claude-opus-5`/`claude-sonnet-5` に変わり、すでに移行済みの Claude Desktop の既定ルートとプリセット既定値に揃いました。`opus-5` はアダプティブ思考の分類器に加わり、モデルマッピングの前にクライアントエイリアスで動く Bedrock 思考オプティマイザは、削除済みの `budget_tokens` ではなくアダプティブ思考を送り続けます。ルーティングは影響を受けず——プロキシはロールのキーワードでクライアントエイリアスをマッピングします——エイリアスはプロキシの次回起動時に自動で書き換わります。（[#5882](https://github.com/farion1231/cc-switch/pull/5882)、[#5876](https://github.com/farion1231/cc-switch/issues/5876) を修正）
+
+#### PPIO・JieKou・Novita の Claude プリセットで「モデルを取得」が動くようになりました
+
+3 社とも 1 つのパスの下に Anthropic 互換 API を提供しつつ、OpenAI 互換のモデル一覧は `/openai/v1` にぶら下げているため、Base URL から導出した候補はすべて 404 になり、モデル発見は一度も成功していませんでした。3 つのプリセットはそれぞれ明示的なモデル一覧 URL を固定し、フォームは取得時にカードの Base URL で逆引きして使います——プリセットの既定アドレスのままの既存カードは何も変えずに有効になります。誤った挙動を固定していた JieKou のテストは削除されました。（[#6870](https://github.com/farion1231/cc-switch/pull/6870) と後続）
+
+#### その他の修正
+
+- **Claude セッション一覧に幽霊の「journal」セッションが出なくなりました**：Claude Code の workflow 機能は `journal.jsonl` をセッションディレクトリに書きますが、スキャナは `agent-*` ファイルしか除外しておらず、各 journal が「journal」というタイトルの空セッションとして解析されていました。（[#6043](https://github.com/farion1231/cc-switch/pull/6043)、[#6042](https://github.com/farion1231/cc-switch/issues/6042) を修正）
+- **更新チェックの失敗時に本当の理由を表示します**：アップデータープラグインは素の文字列で reject するため `instanceof Error` の判定が決して成立せず、実際の失敗理由（ネットワークエラー、レート制限、不正なマニフェスト）は汎用の文言に置き換えられ、誰も読まない状態に置かれていました。復元されたメッセージは失敗通知に直接届きます。（[#6482](https://github.com/farion1231/cc-switch/pull/6482)）
+- **プロキシアドレスのマスキングがマルチバイト文字でクラッシュしなくなりました**：プロキシ URL の解析に失敗したときのフォールバック分岐は 20 バイト目で硬く切り、マルチバイトの UTF-8 文字がそのオフセットをまたぐと panic していました——グローバルプロキシアドレスに中国語を貼るだけで発生します。切断位置は文字境界に揃えられました。（[#6908](https://github.com/farion1231/cc-switch/pull/6908)）
+- **Pi の重複キーエラーと折りたたみラベルが生のキーではなく文言を表示します**：Pi バックエンドの重複キーエラーがマッピングする翻訳キーは 4 言語のどれにも存在せず、思考マッピングの折りたたみボタンのアクセシブルラベルも欠けていました。両方を zh/en/ja/zh-TW に追加し、言語カバレッジテストで固定しました。（[#6768](https://github.com/farion1231/cc-switch/pull/6768)）
+- **スクリーンリーダーがアイコンのみのコントロールの名前を読めるようになりました**：アイコンのみの戻るボタン、ヘッダーのローカルルーティングスイッチ、プロジェクト切り替えポップオーバー、Claude JSON エディタ、既存 Skills のインポートチェックボックスにプログラム的な名前が付き、できるだけ既存の文言を再利用し、短いラベルを 2 つ追加しました。（[#7049](https://github.com/farion1231/cc-switch/pull/7049)、[#7048](https://github.com/farion1231/cc-switch/issues/7048) を修正）
+- **使用量トレンドグラフのトークン軸がローカライズされたコンパクト表記になりました**：目盛りは「値/1000 に k」で固定されていたため、使用量の多い日は `1500k` と表示されていました。ロケールのコンパクト表記（`1.5M`）で表示し、軸幅もそれに合わせて調整しました。（[#7016](https://github.com/farion1231/cc-switch/pull/7016)）
+- **料金ソースのドロップダウンにローカライズ文言が収まるようになりました**：使用量コスト設定の料金モデルソースセレクタはラベルに約 70 px しか確保しておらず、英語と日本語には約 107 px 必要でした。幅を広げ、隣の入力欄と高さを揃えました。（[#6980](https://github.com/farion1231/cc-switch/pull/6980)）
+
+---
+
+### アップグレード時の注意
+
+#### 本リリースにデータベースマイグレーションは含まれません
+
+スキーマバージョンは 18 のままで、マイグレーションバックアップは作成されません。
+
+#### プリセット変更は新規作成のプロバイダにのみ影響します
+
+既存カードは作成時のスナップショットを保持します。本リリースで該当するのは：Zhipu GLM プリセット（既存の Zhipu Codex カードは依然として Chat エンドポイントを指し、直接接続は失敗したままです——プリセットを再インポートすれば `/api/v1` になります）、Tencent の Pi プリセットの思考制御（本当に効く「off」と訂正済みの Kimi 段階には再インポートが必要）、grok-4.5 の xhigh 段階、Tencent プリセットからの `minimax-m2.5` の削除。PPIO・JieKou・Novita のモデル一覧 URL は例外です：フォームはカードの Base URL でプリセットを逆引きするため、既定アドレスのままの既存カードは変更不要です。
+
+#### Codex のカタログ系修正は次回のプロバイダ切り替え時に有効になります
+
+カタログファイルは切り替え時に再生成されます：DeepSeek の MCP 可視性（[#6653](https://github.com/farion1231/cc-switch/pull/6653)）、`supports_parallel_tool_calls` の補填（[#6666](https://github.com/farion1231/cc-switch/pull/6666)）、視覚モダリティ（[#6750](https://github.com/farion1231/cc-switch/pull/6750)）、glm-5.3 のテキスト専用エントリ（[#6851](https://github.com/farion1231/cc-switch/pull/6851)）はいずれもこれに該当します。該当カードで一度切り替えて戻してください。
+
+#### Codex OAuth 引き継ぎは Codex 0.153.4 を自己申告するようになりました
+
+設定は不要です。cc-switch を介さず Codex CLI を直接使う場合、GPT-6 にはローカルの Codex ≥ 0.153.0 が必要です。
+
+#### 認証センターにすでにある ChatGPT アカウントは重複して追加できません
+
+同じユーザー・同じワークスペースの再追加は拒否されます。そのアカウント行の「再ログイン」を使ってください。同一ワークスペースの別ユーザーは引き続き共存できます。
+
+#### Grok OAuth カードは次回の切り替え時に自己修復します
+
+`requires_openai_auth` フラグは `false` に補填されます。追加し直す必要はありません。
+
+#### 引き継ぎ書き込み時の `requires_openai_auth` は Codex の認証情報ストアに従って上書きされます
+
+アクティブなサードパーティテーブルのこのフラグは、引き継ぎ書き込みのたびに Codex が観測するログイン状態に従って上書きされます：file ストア（既定）では `auth.json` が公式ログインを保持しているかに従い、ephemeral ストアでは Codex は起動のたびに未ログインなのでフラグは `false` と書かれ、keyring と auto ストアではログイン状態をディスクから読めないためカードの元の値を保持します。
+
+#### resume で止まっていた使用量は次回のスキャンで補填されます
+
+補填されたエントリは実際に発生した日付で計上されるため、その日のダッシュボード合計が跳ね上がることがあります。revert したスレッドは今後正しいセッション id を記録します。以前に rollout id で書かれた行は書き換えません。
+
+#### 料金
+
+Sonnet 5 のガードはシード値 3/15/0.30/3.75 のままの行だけを訂正します。カスタマイズ済みの Sonnet 5 行は触らず、過去の Sonnet 5 コストは再計算*しません*——コストは記録時に凍結され、補填は $0 で記録された行だけを埋めます（そのため Fable 5.1、GLM-5.3、GLM-5.3 Flash、GPT-6 Astra、Gemini 3.8 Flash の履歴は補填*されます*）。MiniMax M2 系列にはこれまでゼロだったキャッシュ書き込み価格が加わり、その分のコストは今後上がります。GPT-5.6 のプロモーション価格（少なくとも 2026-11-21 まで）と Gemini 3.6/3.8 Flash の導入価格（2026-12-31 まで、以後 $1.50/$7.50/$0.15）にはいずれも期限がありますが、料金表は日付を表現できないため、後続のリリースで再シードします。
+
+#### Codex ルーティング経由の画像生成はトークン単位で計数され、組み込みの料金はまだありません
+
+画像モデルには料金行がまだなく、追加されるまでコストは $0 と表示されます。
+
+#### Hermes のバージョン探索は劣化時に「不明」を表示します
+
+GitHub に到達できず PyPI のフォールバック値がインストール済みバージョンより低い場合、誤解を招く「最新 0.19.0」ではなく「不明」を表示します。
+
+#### 会話途中の system メッセージはその場で転送されるようになりました
+
+OpenAI 形式の上流へ送る会話途中の system メッセージは先頭に統合されなくなりました。これがプレフィックスキャッシュのヒットが回復する理由そのものであり、Claude Code がネイティブに送る形とも一致します。付随する影響が 2 つあります：アップグレード後の最初のリクエストでプレフィックスのバイト列が変わるため、キャッシュは一度だけ冷え、その後回復します。また、system メッセージがすべて先頭にあることを要求する厳格なバックエンド（[#1881](https://github.com/farion1231/cc-switch/issues/1881) の Nvidia・Qwen のようなエンドポイント。`System message must be at the beginning` を返します）は、会話途中の system メッセージが現れると再び 400 を返します——元の統合ロジックはまさにそれらのために導入されたもので、プレフィックスの安定と厳格なバックエンドの検証は同じグローバルな挙動の中で両立できません。お使いの上流が後者に該当する場合は issue でお知らせください。
+
+---
+
+### リスク通知
+
+#### 継続してお伝えしている注意事項
+
+**xAI Grok OAuth サインイン**：公式 Grok CLI の公開 OAuth クライアント識別情報を再利用しており、利用によってアカウントの制限や停止につながる恐れがあります——詳細は [v3.18.0 release notes](/ja/changelog/3.18.0#リスク通知) を参照してください。
+
+**Codex OAuth リバースプロキシ**：ChatGPT サブスクリプションの Codex OAuth をリバースプロキシ経由で使用すると、OpenAI の利用規約に違反する可能性があります。詳細は [v3.13.0 release notes](/ja/changelog/3.13.0#リスクに関する注意事項) を参照してください。
+
+**SuperGrok の残量照会**：プロバイダカードの残量表示は grok.com の非公開の課金エンドポイントに依存しており、xAI がインターフェースを変更すると機能しなくなる可能性があります——詳細は [v3.19.0 release notes](/ja/changelog/3.19.0#リスク通知) を参照してください。
+
+**サードパーティプロバイダへのルーティング**：CC Switch のローカルプロキシで Codex・Claude Desktop・Grok Build のリクエストを変換してサードパーティのプロバイダへ転送する場合、課金・コンプライアンス・データ保持に関する制約はプロバイダごとに異なります。利用前に対象プロバイダの利用規約をお読みください。
+
+上記の機能を有効にした時点で、ユーザーは関連するリスクを自ら引き受けることになります。CC Switch は、これらの機能の利用に起因するアカウントの制限・警告・サービス停止について、一切の責任を負いません。
+
+---
+
+### 謝辞
+
+本リリースの 52 コミットのうち 36 は 26 名の外部コントリビューターによるものです。
+
+#### コード貢献
+
+- @loocor さんに感謝します：xAI ネイティブ Responses 経由の Grok の主軸全体（[#6917](https://github.com/farion1231/cc-switch/pull/6917)）——ツールスキーマの折りたたみと整数値浮動小数の書き換え、`agent_message` メールボックス項目の書き換え、サブエージェントの未知モデルマッピング、ゲートの集約と CI の整理、計 6 コミット。
+- @szupzj18 さんに感謝します：Codex カタログの修正 3 件——DeepSeek の MCP 可視性（[#6653](https://github.com/farion1231/cc-switch/pull/6653)）、`supports_parallel_tool_calls` の補填（[#6666](https://github.com/farion1231/cc-switch/pull/6666)）、未知モデルの入力モダリティ（[#6750](https://github.com/farion1231/cc-switch/pull/6750)）。Moonshot の `$ref` 兄弟キーの修正も [#6627](https://github.com/farion1231/cc-switch/pull/6627) でより早く試みられていました。
+- @yovinchen さんに感謝します：GPT-6 Astra、GLM-5.3 Flash、Gemini 3.8 Flash の料金 3 件（[#7162](https://github.com/farion1231/cc-switch/pull/7162)、[#7163](https://github.com/farion1231/cc-switch/pull/7163)、[#7164](https://github.com/farion1231/cc-switch/pull/7164)）。
+- @thisTom さんに感謝します：Codex 画像生成エンドポイントの透過（[#7036](https://github.com/farion1231/cc-switch/pull/7036)）と使用量トレンドグラフのコンパクトな軸ラベル（[#7016](https://github.com/farion1231/cc-switch/pull/7016)）。同じ透過は @Komikawayi さんが [#5484](https://github.com/farion1231/cc-switch/pull/5484) でより早く修正を提案していました。
+- @zmq1121 さんに感謝します：Tencent Cloud Token Plan の 6 製品 × 6 アプリのプリセット（[#7011](https://github.com/farion1231/cc-switch/pull/7011)）。エンドポイントと思考スイッチはすべて実キーで検証済みです。
+- @2691176649-cloud さんに感謝します：Pi の Tencent TokenHub / Token Plan 8 プリセットと思考制御の宣言（[#7159](https://github.com/farion1231/cc-switch/pull/7159)）。
+- @SaladDay さんに感謝します：重複する管理対象アカウントの拒否（[#7061](https://github.com/farion1231/cc-switch/pull/7061)）。ご自身が報告した [#7055](https://github.com/farion1231/cc-switch/issues/7055) から切り出されたものです。
+- @RemindZ さんに感謝します：Codex OAuth クライアント識別情報の GPT-6 への整合（[#7132](https://github.com/farion1231/cc-switch/pull/7132)）、初コントリビューションです。
+- @liqimore さんと @li-keli さんに感謝します：Codex OAuth の並列ツール呼び出し（[#7024](https://github.com/farion1231/cc-switch/pull/7024)、[#5722](https://github.com/farion1231/cc-switch/pull/5722) を引き継ぎ。@li-keli さんは [#5719](https://github.com/farion1231/cc-switch/issues/5719) の報告者でもあります）。
+- @czhmartinez さんに感謝します：Moonshot/Kimi の `$ref` 兄弟キーの書き換え（[#6863](https://github.com/farion1231/cc-switch/pull/6863)）。同じ問題には @jacker-son さん（[#5125](https://github.com/farion1231/cc-switch/pull/5125)）と loulanyue さん（#6869）もそれぞれ修正を提案していました。
+- loulanyue さんに感謝します：Zhipu GLM プリセットの公式 Responses エンドポイントへの移行（#6957）。
+- @htyvista さんに感謝します：会話途中の system メッセージのその場保持、プレフィックスキャッシュの修正（[#6941](https://github.com/farion1231/cc-switch/pull/6941)、[#6789](https://github.com/farion1231/cc-switch/issues/6789) を修正）。
+- @3351163616 さんに感謝します：Codex の resume 後に使用量が止まる問題の修正（[#6905](https://github.com/farion1231/cc-switch/pull/6905)）。[#6904](https://github.com/farion1231/cc-switch/issues/6904) を自ら報告し自ら修正されました。
+- @Eureka0w0v0 さんに感謝します：Fable 5.1 / Mythos 5.1 の料金と Sonnet 5 の標準価格への復帰（[#7051](https://github.com/farion1231/cc-switch/pull/7051)）。[#7050](https://github.com/farion1231/cc-switch/issues/7050) を自ら報告し自ら修正、初コントリビューションです。
+- @nightcityblade さんに感謝します：引き継ぎエイリアスの Opus 5 / Sonnet 5 への更新（[#5882](https://github.com/farion1231/cc-switch/pull/5882)）。
+- @hu-miao さんに感謝します：PPIO の Pi への拡張と Claude プリセットのモデル一覧 URL（[#6870](https://github.com/farion1231/cc-switch/pull/6870)）。[#6868](https://github.com/farion1231/cc-switch/issues/6868) を自ら報告し自ら修正されました。
+- @arichyx さんに感謝します：GLM-5.3 の料金（[#6591](https://github.com/farion1231/cc-switch/pull/6591)）。
+- @teddyli18000 さんに感謝します：glm-5.3 のテキスト専用マーク（[#6851](https://github.com/farion1231/cc-switch/pull/6851)）、初コントリビューションです。
+- @jintonglu6688 さんに感謝します：アクセシブルネームの補完（[#7049](https://github.com/farion1231/cc-switch/pull/7049)）。[#7048](https://github.com/farion1231/cc-switch/issues/7048) を自ら報告し自ら修正、初コントリビューションです。
+- @SailingLoong さんに感謝します：更新チェック失敗時の本当の理由の表示（[#6482](https://github.com/farion1231/cc-switch/pull/6482)）、初コントリビューションです。Hermes のバージョンソースの問題も [#6621](https://github.com/farion1231/cc-switch/pull/6621) で最初に修正を提案されました。
+- @nasymonk さんに感謝します：幽霊の「journal」セッション（[#6043](https://github.com/farion1231/cc-switch/pull/6043)）。[#6042](https://github.com/farion1231/cc-switch/issues/6042) を自ら報告し自ら修正されました。
+- @xu-kai-quan さんに感謝します：プロキシアドレスマスキングのマルチバイト panic（[#6908](https://github.com/farion1231/cc-switch/pull/6908)）。
+- @ntdatt812 さんに感謝します：Pi の欠けていた翻訳キー 2 件（[#6768](https://github.com/farion1231/cc-switch/pull/6768)）。
+- @Chang-Yo さんに感謝します：料金ソースドロップダウンの幅（[#6980](https://github.com/farion1231/cc-switch/pull/6980)）。
+- @wanwan-doudou さんに感謝します：テストでの `LOCALAPPDATA` の隔離（[#6078](https://github.com/farion1231/cc-switch/pull/6078)）。[#6077](https://github.com/farion1231/cc-switch/issues/6077) を自ら報告し自ら修正されました。
+- @why19970628 さんに感謝します：README のディレクトリツリーの翻訳パス修正（[#6100](https://github.com/farion1231/cc-switch/pull/6100)）。
+
+#### 問題報告
+
+- [#6789](https://github.com/farion1231/cc-switch/issues/6789) で実測データ（ヒット率 99% → 20%）により会話途中の system メッセージの統合を突き止めてくださった @elizax さんに感謝します——本リリースのプレフィックスキャッシュ修正の出発点です。
+- @jonneyz さんに感謝します：xAI がルートレベルの `oneOf`/`anyOf` ツールスキーマを拒否する件（[#6815](https://github.com/farion1231/cc-switch/issues/6815)）と Moonshot の `$ref` 兄弟キー 400（[#6867](https://github.com/farion1231/cc-switch/issues/6867)）、フィールド単位で正確な 2 件の報告。
+- Moonshot ツールスキーマ 400 一族のその他の報告者の皆さんに感謝します：@Cinnamanthus さん（[#6614](https://github.com/farion1231/cc-switch/issues/6614)、検証済みの修正案つき）、@IchenDEV さん（[#6834](https://github.com/farion1231/cc-switch/issues/6834)）、@ghostman-git さん（[#6861](https://github.com/farion1231/cc-switch/issues/6861)）、@dolami0 さん（[#6976](https://github.com/farion1231/cc-switch/issues/6976)）、@RN0817 さん（[#7000](https://github.com/farion1231/cc-switch/issues/7000)）、@Lw2xy さん（[#7028](https://github.com/farion1231/cc-switch/issues/7028)）。
+- Zhipu の Codex 直接接続での `unknown variant custom` を報告してくださった @loveyang2012 さん（[#6944](https://github.com/farion1231/cc-switch/issues/6944)）に感謝します。
+- DeepSeek プリセット下で MCP ツールが使えない件を報告してくださった @vdiskg さん（[#6647](https://github.com/farion1231/cc-switch/issues/6647)）と、コメントでソースレベルの根本原因と検証済みの修正を示してくださった @wqzhellohhwy さんに感謝します。
+- カタログの `supports_parallel_tool_calls` 欠落を報告してくださった @OhtoAi583 さんと @dydydd さん（[#6661](https://github.com/farion1231/cc-switch/issues/6661)、[#6709](https://github.com/farion1231/cc-switch/issues/6709)）に感謝します。@dydydd さんは [#6710](https://github.com/farion1231/cc-switch/pull/6710) で同じ修正も提出され、@zmzwynzj さんは #6661 で Windows での再現を追加し、問題が Kimi や macOS に限らないことを示してくださいました。
+- DeepSeek の視覚モデルが画像を読めない件を報告してくださった @deadman49 さん（[#6725](https://github.com/farion1231/cc-switch/issues/6725)）に感謝します。
+- GPT-6 が使えない件を報告してくださった @zhou0722jack さん（[#7129](https://github.com/farion1231/cc-switch/issues/7129)）と、同じ issue で 400 の原文を貼り修正を検証してくださった @AiIsBetter さんに感謝します。
+- ローカルルーティング下で画像生成が 404 になる件を報告してくださった @Hewitt-Qiao さんと @JerryChen001 さん（[#5429](https://github.com/farion1231/cc-switch/issues/5429)、[#6745](https://github.com/farion1231/cc-switch/issues/6745)）に感謝します。
+- 引き継ぎ下で Opus 5 を選べない件を報告してくださった @SHIZHENGYE さん（[#5876](https://github.com/farion1231/cc-switch/issues/5876)）に感謝します。
+- [#6904](https://github.com/farion1231/cc-switch/issues/6904) で resume 後の使用量停止を併せて報告してくださった @matthewdm0816 さんと @lagolas さんに感謝します——前者の「1M コンテキストに切り替えてから resume」は同じ根本原因の別の現れです。
+- Hermes の最新バージョンが 0.19.0 で止まる件を報告してくださった @FlyinheartLee さん、@t5yhuangxing さん、@Tsuki-hash さん（[#6475](https://github.com/farion1231/cc-switch/issues/6475)、[#6618](https://github.com/farion1231/cc-switch/issues/6618)、[#7033](https://github.com/farion1231/cc-switch/issues/7033)）に感謝します。
+- QwenCloud プリセットを要望してくださった @QianWen-AI-Platform さん（[#6214](https://github.com/farion1231/cc-switch/issues/6214)）に感謝します。
+
+---
+
+### ダウンロードとインストール
+
+[Releases](https://github.com/farion1231/cc-switch/releases/latest) からお使いのシステムに合ったビルドをダウンロードするか、公式サイト [ccswitch.io](https://ccswitch.io) から入手してください（ダウンロードは Cloudflare のエッジノード経由で配信され、GitHub への到達性に依存しません）。
+
+#### システム要件
+
+| システム | 最低バージョン           | アーキテクチャ                      |
+| -------- | ------------------------ | ----------------------------------- |
+| Windows  | Windows 10 以降          | x64 / ARM64                         |
+| macOS    | macOS 12 (Monterey) 以降 | Intel (x64) / Apple Silicon (arm64) |
+| Linux    | 下表参照                 | x64 / ARM64                         |
+
+#### Windows
+
+| ファイル                                 | 説明                                             |
+| ---------------------------------------- | ------------------------------------------------ |
+| `CC-Switch-v3.20.2-Windows.msi`          | **推奨** - MSI インストーラ、自動更新対応        |
+| `CC-Switch-v3.20.2-Windows-Portable.zip` | ポータブル版、解凍してすぐ使用、レジストリ不使用 |
+
+Windows ARM64 デバイスでは、ファイル名に `arm64` を含む成果物を選んでください。
+
+#### macOS
+
+| ファイル                         | 説明                                                 |
+| -------------------------------- | ---------------------------------------------------- |
+| `CC-Switch-v3.20.2-macOS.dmg`    | **推奨** - DMG インストーラ、Applications へドラッグ |
+| `CC-Switch-v3.20.2-macOS.zip`    | 解凍後 Applications へドラッグ、Universal Binary     |
+| `CC-Switch-v3.20.2-macOS.tar.gz` | Homebrew でのインストールと自動更新用                |
+
+Homebrew でのインストール：
+
+```bash
+brew install --cask cc-switch
+```
+
+アップデート：
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux の成果物は **x86_64** と **ARM64**（`aarch64`）の両アーキテクチャで提供されます。ファイル名のアーキテクチャ表記を、お使いのマシンの `uname -m` の出力に合わせて選んでください：
+
+- `CC-Switch-v3.20.2-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.2-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| ディストリビューション                  | 推奨形式    | インストール方法                                                           |
+| --------------------------------------- | ----------- | -------------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`      | `sudo dpkg -i CC-Switch-*.deb` または `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`      | `sudo rpm -i CC-Switch-*.rpm` または `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`      | `sudo zypper install ./CC-Switch-*.rpm`                                    |
+| Arch Linux / Manjaro                    | `.AppImage` | 実行権限を付与して直接実行、または AUR を利用                              |
+| その他 / 不明な場合                     | `.AppImage` | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`                  |
+
+## [3.20.1] - 2026-08-28
+
+> 本リリースは Codex まわりの 2 つの大きな課題を解決します。**Codex CLI 0.149 への対応**——サードパーティ切り替えが 401「Missing API key」で失敗する問題の根治です。切り替えは config-only になり、キーはプロバイダ自身のテーブルに書かれ、`auth.json` には二度と入りません。0.149 が起動を拒否する一連の旧設定形状も、切り替えのたびに自動修復されます。もうひとつは **同じ ChatGPT Team ワークスペースの複数アカウントが互いを上書きしなくなったこと**——既存の管理対象アカウントは 1 回ずつ再ログインが必要です（アップグレード時の注意を参照）。データ信頼性の修正も 3 件：プロバイダ編集は必ず live 設定に届き、Codex の編集ダイアログが別カードのキーを表示することはなくなり、復元が手書きのプロンプトファイルを消すこともなくなりました。使用量側には「セッションログの自動スキャン」スイッチが加わり、大きなセッションファイルのスキャンは秒単位からミリ秒単位になりました。本リリースには**データベースマイグレーション（v17 → v18）が含まれます**——マイグレーション前にバックアップが自動作成され、ダウングレードにはその復元が必要です。
+
+### ハイライト：本リリースでできること
+
+- **Codex CLI ≥ 0.149 でサードパーティプロバイダを普通に切り替える**（[#6744](https://github.com/farion1231/cc-switch/issues/6744)）：0.149 以降、カスタムプロバイダは `auth.json` から環境認証情報を継承しなくなり、旧来の既定方式（キーを `auth.json` だけに書く）で行われたサードパーティ切り替えはすべて 401 で失敗していました。切り替えは全面的に config-only になりました——キーはプロバイダ自身の `[model_providers.*]` テーブル（`experimental_bearer_token`、Codex 0.48 から対応）に入り、`auth.json` は純粋な公式 ChatGPT ログインファイルに戻ります。
+- **同じ Team ワークスペースの複数の ChatGPT アカウントを安全に共存させる**（[#6780](https://github.com/farion1231/cc-switch/pull/6780)、[#2245](https://github.com/farion1231/cc-switch/issues/2245) を修正）：これまでアカウントはワークスペース ID をキーにしていたため、同じ Team の 2 人のメンバーは 1 件のレコードに統合され、後からログインした人が先の人のトークンを黙って上書きしていました。同一ワークスペースのログインは別々のアカウント行として共存し、引き継ぎ経由のリクエストは紐付けアカウントと照合されます——請求が別のメンバーに載ることはありません。
+- **「保存しました」を信じる**（[#6779](https://github.com/farion1231/cc-switch/pull/6779)）：クラッシュで残った引き継ぎバックアップ行のせいで、アクティブなプロバイダの編集がデータベースだけを更新し、実際の設定ファイルがまったく変わらないことがありました。所有権判定は作り直され、編集は必ず live 設定に届きます。
+- **編集ダイアログでそのカード自身のキーを見る**（[#6534](https://github.com/farion1231/cc-switch/pull/6534)、[#6414](https://github.com/farion1231/cc-switch/issues/6414) を修正）：共有の `auth.json` にはプロバイダの身元がなく、アクティブな Codex プロバイダを編集すると別カードの残置キーが表示され——保存すると固定化され——同じ Base URL を共有するカードのキーが互いに収斂していました（「model not found」）。フォームは `config.toml` 内のそのカード自身の bearer token からキーを再構築します。
+- **安心してバックアップを復元する**（[#6810](https://github.com/farion1231/cc-switch/pull/6810)、[#6778](https://github.com/farion1231/cc-switch/issues/6778) を修正）：クラウドスナップショットに有効なプロンプトがひとつもないアプリについて、WebDAV/S3 ダウンロードやバックアップインポートが手書きの `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `SOUL.md` を空に切り詰めることはなくなりました。
+- **バックグラウンドのセッションスキャンをオフにする**：使用量ページに「セッションログの自動スキャン」スイッチが加わりました。オフにすると手動モードになり、「今すぐ同期」を押したときだけローカルのセッションログをスキャンします。プロキシ引き継ぎのリクエスト計上はリアルタイムでデータベースに記録され、セッションファイルを読まないため、どちらでも記録は続きます。
+- **OpenCode Go のサブスクリプション残量を見る**：使用量スクリプトの Token Plan 照会が OpenCode Go を認識し、5 時間 / 週 / 月の 3 つのウィンドウの使用率とリセット時刻が使用量カードとトレイに表示されます。
+- **macOS でターミナルに Otty を選ぶ**（[#6620](https://github.com/farion1231/cc-switch/pull/6620)）：セッション再開・プロバイダターミナル・ツールコマンドの 3 か所で選べます。
+- **大きなセッションファイルのスキャンを秒からミリ秒にする**：Claude セッションログはバイトカーソルの増分スキャンに移行し、12 MB のアクティブなセッションファイルは全読み 6.04 秒から増分 9.3 ミリ秒になりました。
+
+---
+
+### 利用ガイド
+
+- **[プロバイダの追加](/ja/docs?section=providers&item=add)**：Codex config-only 切り替え後のプロバイダ管理の入口です。
+- **[使用量統計](/ja/docs?section=proxy&item=usage)**：セッションスキャンスイッチと Token Plan 残量照会の集計基準。
+
+---
+
+> [!WARNING]
+>
+> ## 唯一の公式チャネル（必ずお読みください）
+>
+> CC Switch は**完全に無料・オープンソース**のデスクトップアプリで、**ユーザーから料金を徴収することはありません**。本ソフトウェアは下記の公式チャネルからのみ入手してください：
+>
+> | チャネル     | 唯一の公式                                                                     |
+> | ------------ | ------------------------------------------------------------------------------ |
+> | 公式サイト   | **[ccswitch.io](https://ccswitch.io)**                                         |
+> | ソースコード | **[github.com/farion1231/cc-switch](https://github.com/farion1231/cc-switch)** |
+> | ダウンロード | **[GitHub Releases](https://github.com/farion1231/cc-switch/releases)**        |
+> | 作者         | **[@farion1231](https://github.com/farion1231)**                               |
+> | 偽サイト通報 | **[GitHub Issues](https://github.com/farion1231/cc-switch/issues)**            |
+>
+> **料金請求・チャージ・認証情報の提供を求める「CC Switch」サイトやクライアントはすべて偽物です。** 支払いを誘導された場合は直ちに操作を中止し、GitHub Issues からご報告ください。
+
+---
+
+### 概要
+
+本リリースの主軸は Codex にあり、出発点は上流の互換性の断絶です。Codex CLI 0.149 は認証情報の継承を厳格化し、カスタムプロバイダは `auth.json` の環境認証情報を読まなくなりました——旧来の既定方式で書かれたサードパーティ切り替えはすべて 401 で失敗します。CC Switch の答えはパッチではなく再設計です。サードパーティ切り替えは config-only になり——キーはプロバイダ自身の設定テーブルに入り、`auth.json` は純粋な公式 ChatGPT ログインファイルに戻ります。あわせて、0.149 が読み込みを拒否する一連の旧設定形状（予約 id を占有する古いテーブル、`name` のないテーブル、トップレベル `openai_base_url` の旧式ルーティング）は、切り替えと引き継ぎ投影のたびに自動修復され、新しい事前検証が 0.149 の読み込めない組み合わせを名指しで拒否します——「切り替え成功」の後に Codex が起動しない、という事態の代わりに。
+
+第 2 の主軸はアカウントとデータの安全です。同じ ChatGPT Team ワークスペースのメンバーが認証センターで互いを上書きすることはなくなり（既存の管理対象アカウントは 1 回の再ログインが必要）、プロバイダ編集は必ず live 設定に届き、Codex の編集ダイアログが別カードのキーを混入させることも、復元が手書きのプロンプトファイルを消すこともなくなりました。使用量側では、セッションスキャンに自動/手動スイッチとバイトカーソル増分スキャン（6.04 秒 → 9.3 ミリ秒）が加わり、Claude セッション計上の正確性の欠陥も 3 件修正されました——これが本リリース唯一のデータベースマイグレーション（v17 → v18）の由来です。
+
+**リリース日**：2026-08-28
+
+**変更規模**：26 commits | 66 files changed | +7,474 / -1,000 lines
+
+---
+
+### 新機能
+
+#### セッションログスキャン：自動/手動モード
+
+使用量ページに「セッションログの自動スキャン」カードとスイッチが加わりました（既定はオン、アップグレード後の挙動は不変です）。オフにするとバックグラウンドのセッションスキャンは起動時の初回分も含めてすべて停止し、手動の入口として「今すぐ同期」ボタンが現れ、完了時にインポート件数・スキャンファイル数・エラー数を通知します。プロキシ引き継ぎのリクエスト計上はリアルタイムでデータベースに記録されセッションファイルを読まないため、スイッチに関係なく記録が続きます。起動時のコスト補填（データベースの既存行だけを修正）も手動モードで引き続き実行されます。
+
+#### OpenCode Go サブスクリプション使用量
+
+使用量スクリプトの Token Plan 照会が OpenCode Go を認識し、5 時間 / 週 / 月の 3 つのウィンドウの使用率とリセット時刻を、既存のクォータ階層表示を再利用して使用量カードとトレイに表示します。エンドポイントは Bearer 認証のみ（`x-api-key` しか受け付けない推論側とちょうど正反対）。キーは有効でも Go サブスクリプションがない場合は、汎用の認証エラーではなく専用のメッセージ（HTTP 403）を表示し、使用量ゼロのウィンドウでは上流のプレースホルダーのリセット時刻を捨て、認識できないレスポンス形状では空のカードではなくエラーを報告します。Claude Code・Claude Desktop・Codex・OpenCode・Pi で新規追加した OpenCode Go プロバイダは照会を自動で有効化します。OpenCode Zen の従量課金は意図的に対象外です——このプランには上流に使用量 API がありません。
+
+#### Otty ターミナル対応（macOS）
+
+「Otty」が macOS のターミナル選択肢に加わり、セッション再開・プロバイダターミナル・ツールコマンドの 3 つの入口をカバーします。起動時はまず Otty CLI 経由で既存ウィンドウの新しいタブを試み、次に新しい Otty ウィンドウへフォールバックします。プロバイダターミナルとツールコマンドは失敗時にさらに Terminal.app へフォールバックしますが、セッション再開の失敗はそのままエラーを報告し——Otty CLI が見つからない場合は明示的なインストール案内つき——コマンドをクリップボードにコピーします。CLI の探索はアプリバンドル（システムとユーザー単位）・Homebrew のパス・PATH を調べます。ユーザーマニュアルの macOS ターミナル表も修正されました——Kaku と Warp は以前から対応していたのに表に載っていませんでした。（[#6620](https://github.com/farion1231/cc-switch/pull/6620)）
+
+---
+
+### 変更
+
+#### Codex のサードパーティ切り替えは config-only になりました
+
+サードパーティ Codex プロバイダへの切り替えは、API キーをそのプロバイダ自身の `[model_providers.*]` テーブル（`experimental_bearer_token` フィールド、Codex 0.48 から対応）に書き込み、**`auth.json` には二度と書きません**——`auth.json` は純粋な公式 ChatGPT ログインファイルに戻ります。背景は、Codex 0.149 がカスタムプロバイダによる `auth.json` の環境認証情報の継承をやめたことです。旧来の既定方式（キーを `auth.json` だけに書く）で行われたサードパーティ切り替えは、それ以来 401 で失敗していました。
+
+「直接切替時に公式ログインを保持」スイッチの意味はひとつだけになりました。オンなら公式 ChatGPT ログインはサードパーティ切り替えを通じて一切触れられません。オフなら `auth.json` を API キーで上書きする代わりに**削除**します（削除に失敗すると、公式ログインが Codex 設定ディレクトリに残っている旨の警告が表示されます）。2 つの安全ゲートは保持モードに限らず**サードパーティ切り替えのたびに**実行されます。キーがあるのに受け皿となるプロバイダテーブルがない設定、キーがないのに公式ログインへフォールバックしてしまう設定（自前の認証情報のない `requires_openai_auth = true`、あるいは裸のトップレベル `openai_base_url` ルーティング）は、どちらも名指しで拒否されます——空設定のサードパーティカード（これまで黙って `auth.json` に相乗りしていました）も含めてです。アクティブなキー付きサードパーティテーブルの `requires_openai_auth` は直接切り替えのたびに保持スイッチへ合わせて刻印し直され、Codex のログイン画面はディスク上の実態と一致します。（[#6744](https://github.com/farion1231/cc-switch/issues/6744)、[#6746](https://github.com/farion1231/cc-switch/pull/6746)）
+
+#### TeamoRouter プリセットが teamorouter.cn へ移行
+
+8 アプリのプリセットはすべて `api.teamorouter.cn` を指すようになり、旧 `.com` エンドポイントは Claude Code・Claude Desktop・Codex・Grok Build で選択・速度測定可能なフォールバック候補として登録されます。保存済みの既存 TeamoRouter プロバイダは、それぞれ保存時の Base URL を保ちます。
+
+---
+
+### 修正
+
+#### 同一ワークスペースの ChatGPT アカウントが認証センターで統合されなくなりました
+
+管理対象の Codex OAuth アカウントは `chatgpt_account_id` をキーにしていましたが、これは人ではなく ChatGPT ワークスペースを識別する値です。同じ Team ワークスペースの 2 人のメンバーは 1 件のレコードに統合され、後のログインが先のトークンを黙って上書きし、プロバイダの紐付けは最後にログインした人を指していました。アカウントはローカルの識別子をキーにし、ユーザー身元の証明として OIDC subject を保持するようになり、同一ワークスペースのログインは別々の行として共存します。引き継ぎ経由のリクエストは、さらに紐付けアカウントの live トークンと照合されます。別のメンバーのログイン状態を保持したままの Codex セッションは、誤った身元で転送される代わりに「Codex を再起動してください」という明確なエラーを受け取り、外向きのワークスペースヘッダは常にクライアントの自己申告ではなくアカウント紐付けに由来します。CLI がローテーションしたリフレッシュトークンの取り込みと、アカウント削除時の `auth.json` 削除は、いずれも証明可能な所有権を要求するようになりました——CC Switch が同一ワークスペースの別メンバーのログインを取り込んだり削除したりすることはもうできません。各アカウント行はその場で「再ログイン」（紐付けは保持）でき、デバイスログインのキャンセルや置き換えは保留中のフローを CC Switch 内部で破棄します——放置されたブラウザ認可が数分後にコミットされてアカウントを黙って上書きすることはできません。正しい JWT の形をしていない id_token は一切の身元を生みません——不正な形式や切り詰められたトークンがユーザーの代わりになることはありません。（[#6780](https://github.com/farion1231/cc-switch/pull/6780)、[#6831](https://github.com/farion1231/cc-switch/pull/6831)、[#2245](https://github.com/farion1231/cc-switch/issues/2245) を修正）
+
+#### Codex 0.149 互換性修復の一群：既存設定が Codex の起動を妨げなくなりました
+
+Codex 0.149 に読み込みを拒否させる一連の設定形状——ユーザーには「CC Switch は切り替え成功と言うのに Codex が起動しない」と見えていました——が、プロバイダ切り替えと引き継ぎ投影のたびに自動修復されるようになりました。具体的には：古い引き継ぎ投影が書いた `[model_providers.openai]` / `.ollama` / `.lmstudio` の残置テーブル（予約 id の上書きは検証エラーになります）は CC Switch 自有の id へ無損失で改名され、読み込み可能な形に正規化されます。`name` のないプロバイダテーブルは補填されます（0.149 は名無しテーブルが 1 つでもあると設定全体を拒否します——Bedrock テーブルは意図的に名無しのままです。名前を付けると組み込みのマージが壊れるためです）。使用可能なキーを持つ旧式のトップレベル `openai_base_url` ルーティングは正規のカスタムプロバイダテーブルへ移行されます（キーのないルーティングは代わりに切り替え時の安全ゲートに拒否されます）。新しい事前検証は 0.149 の読み込めないフィールドの組み合わせを、問題のテーブルを名指しして拒否します——「切り替え成功」として書き出す代わりに。組み込み `openai` プロバイダへルーティングされたカードの引き継ぎは、予約テーブルを作る代わりに公式対応のトップレベル設定を使い、`ollama` / `lmstudio` へルーティングされたカードの引き継ぎは明示的なエラーで失敗します。予約 id リストは上流と完全に一致し（大文字小文字を区別。`amazon-bedrock-runtime` を追加、旧 `oss` / `ollama-chat` は通常のカスタムプロバイダとして扱われ、キーがようやく自分のテーブルに届きます）、インラインの `model_providers` テーブルも注入トークンを受け取ります——死んだトップレベルフィールドが残る代わりに。
+
+#### 拒否された切り替えが、拒否されたカードを壊さなくなりました
+
+live 書き込みの検証は、現在プロバイダのポインタが動く前の事前検証として実行されるようになりました。以前は書き込み層の拒否が `current` のコミット後に起きていたため、次の切り替えが古い live 設定を拒否されたプロバイダの保存済み設定へ書き戻していました。
+
+#### プロバイダ編集は必ず live 設定ファイルに届きます
+
+クラッシュや復元失敗で残った引き継ぎバックアップ行のせいで、アクティブなプロバイダの保存（Claude Desktop を除く）が引き継ぎ経路に乗ってしまい——データベースとバックアップ行だけを更新し、実際の設定ファイルは古いエンドポイントと古いキーのまま無期限に放置されていました。所有権は引き継ぎの実際の証拠を要求する単一の述語で判定されるようになりました（live ファイル内のプレースホルダー、またはプロキシが有効かつ稼働中でバックアップ行がある、または切り替え処理がアプリ単位のロックとバックアップ行を併せ持つ）。古いバックアップ行は書き込みを乗っ取る代わりに、編集されたプロバイダに合わせて更新されます。ユニバーサルプロバイダの保存は、生成された各子設定を、それをアクティブプロバイダとするアプリの live 設定へ再投影し、失敗をアプリ名つきで個別報告します——一律「成功」と言う代わりに。（[#6779](https://github.com/farion1231/cc-switch/pull/6779)）
+
+#### Codex 編集ダイアログが別のプロバイダのキーを表示しなくなりました
+
+公式ログイン保持が有効なとき、`auth.json` はプロバイダの身元を持たない共有スロットであり、編集ダイアログはフォームの初期値としてそれを優先していました——アクティブな Codex プロバイダを編集すると、別カードの残置キーが表示され、保存で固定化され、同じ Base URL を共有するカードのキーが互いに収斂していました（「model not found」エラー）。ダイアログは `config.toml` 内のそのプロバイダ自身の bearer token からキーを再構築するようになりました。公式カテゴリと OAuth 専用のプロバイダは影響を受けません。また `config.toml` に自前の bearer token を持たないカード——旧バージョンや手書き保守の形状で、本リリースからはサードパーティ切り替えのたびに書き込まれます——は従来どおり live の `auth.json`（手動編集を含む）を読み続けます。（[#6534](https://github.com/farion1231/cc-switch/pull/6534)、[#6414](https://github.com/farion1231/cc-switch/issues/6414) を修正）
+
+#### 復元が管理外のプロンプトファイルを消さなくなりました
+
+スナップショットにあるアプリの有効なプロンプトがひとつもない場合、WebDAV/S3 ダウンロードやバックアップインポートはそのアプリの live プロンプトファイル（`CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `SOUL.md`）を空に切り詰めていました——同期ペイロードに一度も含まれたことのない、ローカルの手書き内容を破壊していたのです。そのような復元はファイルに一切触れなくなりました。プロンプトパネルから最後のプロンプトを無効化した場合は、従来どおりファイルをクリアします。（[#6810](https://github.com/farion1231/cc-switch/pull/6810)、[#6778](https://github.com/farion1231/cc-switch/issues/6778) を修正）
+
+#### リカバリ画面の終了ボタンが本当に終了するようになりました
+
+`process:allow-exit` 権限が欠けていたため、v3.20.0 では「データベースバージョンが新しすぎる」リカバリ画面の終了ボタンと、設定読み込み失敗後の終了呼び出しが、どちらも IPC 層に黙って拒否されていました。終了ボタンは何も起こさず（ウィンドウを閉じれば終了できました）、設定読み込み失敗後はアプリが意図された終了の代わりに通常の UI へ進んでいました。この問題は @SaladDay さんが [#6567](https://github.com/farion1231/cc-switch/pull/6567) でより早く独立に発見し、先に修正していたものです。
+
+#### Claude セッション計上の正確性修正 3 件
+
+増分スキャナとともに、いずれも Claude セッションログ経路のデータ正確性修正が 3 件入りました。書き込み途中のログ行は、旧来の行番号カーソルに恒久的にスキップされていました（未完成の末尾がカーソルを進めてしまい、完成後のメッセージは二度とインポートされません）——バイトカーソルは完全な行までしかコミットしないため、そのメッセージは次のラウンドで取り込まれます。外部で切り詰められた・書き換えられたセッションファイルは**決して再取り込みしません**。30 日ロールアップが明細行をすでに整理した後の再インポートは合計を恒久的に水増しするため、カーソルは新しいファイル末尾に固定され、スキップされた範囲は黙って捨てられる代わりに同期結果のエラー一覧に報告されます（切り詰めはカーソルのファイル超過で、同サイズの書き換えはカーソル前バイトのフィンガープリントで検出します）。ファイル途中の読み取りエラーは、コミット済みの進捗を保持して次のラウンドに同じ位置から再開し、報告されます——きれいな成功を返す代わりに。カーソルの事前取得に失敗した場合はそのラウンドを中止します——初回スキャンのように振る舞って履歴を二重インポートする代わりに。
+
+---
+
+### パフォーマンス
+
+#### Claude セッションログ：バイトカーソルによる増分スキャン
+
+各スキャンラウンドは、最後にコミットしたバイトオフセットへ直接シークし、追記された分だけを読みます——変更のあったファイルを最初から最後まで読み直す代わりに。変更に付属するベンチマークでは、12 MB のアクティブなセッションファイルが全読み解析 6.04 秒から増分読み取り 9.3 ミリ秒になりました。Claude・Gemini・OpenCode・Grok Build・Pi のファイル単位カーソルは、ファイルごとの照会の代わりにインポーターごとに毎ラウンド 1 回のテーブル読み取りで事前取得されます。Claude 経路では各ファイルのインポートとカーソル前進が単一トランザクションでコミットされます。1,017 個のセッションファイル（409 MB）の凍結スナップショット再生では、旧スキャナと完全に一致する集計が得られました。スキーマのマイグレーション（v17 → v18）が必要で、NULL 許容の 2 列——バイトカーソルと末尾フィンガープリント——を追加します。既存の行番号カーソルは初回スキャンでその場で変換され、何も再インポートしません。
+
+#### Pi セッション重複排除がアイデンティティインデックスを使うようになりました
+
+統合された重複排除クエリ（2 つのアイデンティティ列にまたがる OR）はデータソース接頭辞しか絞り込めず、解析レコードごとに台帳の Pi 区画全体を走査していました——Pi のインポートは使用量履歴が増えるほど遅くなっていました。同一の結果を返すインデックス活用の点照会に分割され、インポート時間は履歴の規模で劣化しなくなりました。（[#6667](https://github.com/farion1231/cc-switch/pull/6667)）
+
+---
+
+### アップグレード時の注意
+
+#### 本リリースにはデータベースマイグレーションが含まれ、ダウングレードにはバックアップの復元が必要です
+
+スキーマは v17 から v18 へ移行します（セッションスキャンのカーソルテーブルにバイトカーソルと末尾フィンガープリントの 2 列を追加）。マイグレーション前にバックアップが自動作成されます。本リリースを一度実行すると、旧バージョンの CC Switch はデータベースを開けなくなります——ダウングレードにはそのバックアップの復元が必要です。旧来の書き込み途中行の欠陥がすでに取りこぼした使用量エントリは遡って回収しません——その再取り込みは、ロールアップ済み履歴の再インポートと区別できないためです。
+
+#### 既存の Codex OAuth アカウントは 1 回の再ログインが必要です
+
+本リリース以前に追加された管理対象 ChatGPT（Codex OAuth）アカウントはすべて、認証センターの該当アカウント行で「再ログイン」を押すまで隔離状態になります——旧レコードは ChatGPT ワークスペース ID をアカウントキーとして使い、個別に記録されたユーザー身元を持たないため、通常のトークン更新では旧レコードがどのユーザーのものか証明できません。プロバイダの紐付けは保持され、再ログインはアカウントをその場で更新します。必ずアカウント行の「再ログイン」ボタンを使ってください。「アカウントを追加」から再ログインしても 2 件目のレコードが作られるだけで（ログインはもうワークスペース単位で統合されません）、旧レコード——およびそれに紐付いたプロバイダ——は隔離されたままです。（[#6780](https://github.com/farion1231/cc-switch/pull/6780)）
+
+#### Codex 0.48 より前のバージョンはサードパーティ認証を失います
+
+config-only 切り替えが書き込むプロバイダテーブルのトークンフィールドを、0.48 より前の Codex は一切読みません。古い Codex をお使いの場合はアップグレードしてください。
+
+#### 保持スイッチがオフのとき、サードパーティへの切り替えは auth.json を削除します
+
+「直接切替時に公式ログインを保持」スイッチが**オフ（既定）**のとき、サードパーティ Codex プロバイダへの切り替えは `auth.json` を API キーで上書きする代わりに**削除**するようになりました。ChatGPT ログインを取り戻すには：認証センターのアカウントに紐付いた公式プロバイダへ切り替えれば、ログインは保存済みアカウントから完全に書き戻されます。Codex CLI 自身のログインに追従する紐付けなしの公式カードの場合は `codex login` の実行が必要です。公式ログインをサードパーティ切り替え越しに残したい場合は、スイッチをオンにしてください。
+
+#### これまで「動いていた」一部の Codex カードは切り替え時に拒否されるようになります
+
+空設定のサードパーティカード（キーの受け皿となるテーブルがない）、および `requires_openai_auth = true` や裸の `openai_base_url` ルーティングで公式ログインを借用していたキーなしカードは、名指しで拒否されるようになりました。そうしたカードには正規の `[model_providers.<id>]` エントリか API キーを追加してください。
+
+#### 既存の Codex 設定は、0.149 が必要とする範囲で次回の live 書き込み時に書き換えられます
+
+使用可能なキーを持つ旧式 `openai_base_url` ルーティングは `[model_providers.cc-switch]` テーブルになり、予約 id を占有する残置テーブルは CC Switch 自有の id へ改名され、欠けている `name` フィールドは補填されます。アクティブなキー付きサードパーティテーブルの `requires_openai_auth` は切り替えのたびに保持スイッチへ合わせて上書きされます——そのテーブルに手動設定した値は切り替え後には残りません。
+
+#### 切り詰め・外部書き換えされた Claude セッションログは、設計として恒久的にスキップされます
+
+書き換えられた範囲は再取り込みされず（再取り込みは整理済みロールアップとの二重計上になります）、スキップは同期結果のエラー一覧に報告されます。
+
+#### #6534 修正以前にすでに混入したキーは自動修復されません
+
+同じ Base URL を共有する Codex プロバイダのキーがすでに 1 つに収斂している場合は、影響を受けた各カードで正しいキーを一度入力し直してください。
+
+#### 復元の挙動変更（#6810）
+
+あるアプリの有効なプロンプトがひとつもないスナップショットを復元しても、そのアプリの live プロンプトファイルは保持されるようになりました——プロンプトパネルではすべて無効と表示されていても、クライアントは古い内容を読み込み続けます。クリアしたい場合は、パネルでプロンプトを有効化してから無効化してください（またはファイルを直接編集してください）。
+
+#### ユニバーサルプロバイダの保存は明示的に失敗することがあります
+
+生成された子設定をアクティブプロバイダとするアプリの live 設定ファイルへの書き込みに失敗した場合、保存はそのアプリ名を挙げてエラーを報告します。データベースのレコードは保存済みです——同期を再試行するか、そのアプリのプロバイダを一度切り替え直してください。
+
+#### 既存の TeamoRouter プロバイダは `api.teamorouter.com` のままです
+
+プリセットから追加し直すか、Base URL を編集すれば `.cn` へ移行できます。
+
+#### OpenCode Go の使用量照会は、本リリース以降に追加したプロバイダのみ自動で有効になります
+
+既存のカードでは、使用量スクリプト設定を開いて Token Plan テンプレート → OpenCode Go を一度選んでください。
+
+---
+
+### リスク通知
+
+#### 継続してお伝えしている注意事項
+
+**xAI Grok OAuth サインイン**：公式 Grok CLI の公開 OAuth クライアント識別情報を再利用しており、利用によってアカウントの制限や停止につながる恐れがあります——詳細は [v3.18.0 release notes](/ja/changelog/3.18.0#リスク通知) を参照してください。
+
+**Codex OAuth リバースプロキシ**：ChatGPT サブスクリプションの Codex OAuth をリバースプロキシ経由で使用すると、OpenAI の利用規約に違反する可能性があります。詳細は [v3.13.0 release notes](/ja/changelog/3.13.0#リスクに関する注意事項) を参照してください。
+
+**SuperGrok の残量照会**：プロバイダカードの残量表示は grok.com の非公開の課金エンドポイントに依存しており、xAI がインターフェースを変更すると機能しなくなる可能性があります——詳細は [v3.19.0 release notes](/ja/changelog/3.19.0#リスク通知) を参照してください。
+
+**サードパーティプロバイダへのルーティング**：CC Switch のローカルプロキシで Codex・Claude Desktop・Grok Build のリクエストを変換してサードパーティのプロバイダへ転送する場合、課金・コンプライアンス・データ保持に関する制約はプロバイダごとに異なります。利用前に対象プロバイダの利用規約をお読みください。
+
+上記の機能を有効にした時点で、ユーザーは関連するリスクを自ら引き受けることになります。CC Switch は、これらの機能の利用に起因するアカウントの制限・警告・サービス停止について、一切の責任を負いません。
+
+---
+
+### 謝辞
+
+本リリースの 26 コミットのうち 8 は 5 名の外部コントリビューターによるものです。
+
+#### コード貢献
+
+- @SaladDay さんに感謝します：ワークスペースアカウント分離の主軸全体（[#6780](https://github.com/farion1231/cc-switch/pull/6780)）、JWT 身元解析の整合（[#6831](https://github.com/farion1231/cc-switch/pull/6831)）、Pi セッション重複排除のインデックス化（[#6667](https://github.com/farion1231/cc-switch/pull/6667)）。終了ボタンの権限欠落も、[#6567](https://github.com/farion1231/cc-switch/pull/6567) でより早く独立に発見し先に修正されたのは同氏です。
+- @YUZHEthefool さんに感謝します：プロバイダ編集の live 設定への必達（[#6779](https://github.com/farion1231/cc-switch/pull/6779)、@BingZi-233 さんとの協働）と、Codex 編集ダイアログのキー混入修正（[#6534](https://github.com/farion1231/cc-switch/pull/6534)）——「修正」章のデータ正確性の 2 大項目はこの仕事です。
+- @SailingLoong さんに感謝します：復元時の管理外プロンプトファイルの保全（[#6810](https://github.com/farion1231/cc-switch/pull/6810)）。
+- @yovinchen さんに感謝します：Otty ターミナル対応（[#6620](https://github.com/farion1231/cc-switch/pull/6620)）。
+- @ISuuuu さんに感謝します：WSL2 契約テストのプリビルドバイナリ実行化（[#6472](https://github.com/farion1231/cc-switch/pull/6472)）。
+
+#### 問題報告
+
+- [#6744](https://github.com/farion1231/cc-switch/issues/6744) で Codex 0.149 の認証情報継承の変化を正確に報告してくださった @hlwhl さんに感謝します——本リリース最大の主軸の方向を直接定めたうえ、最初に修正 PR（[#6746](https://github.com/farion1231/cc-switch/pull/6746)）を提案してくださったのも同氏です。
+- Team ワークスペースのアカウント上書き問題の報告者の皆さんに感謝します：@cp7553479 さん（[#2245](https://github.com/farion1231/cc-switch/issues/2245)）、@Smilenize さん（[#5885](https://github.com/farion1231/cc-switch/issues/5885)）、@yingjiezhao0820 さん（[#6688](https://github.com/farion1231/cc-switch/issues/6688)）、@buqi759 さん（[#6738](https://github.com/farion1231/cc-switch/issues/6738)）。
+- キー混入一族の報告者の皆さんに感謝します：@Joaging さん（[#6414](https://github.com/farion1231/cc-switch/issues/6414)）、@KawaiiSh1zuku さん（[#6594](https://github.com/farion1231/cc-switch/issues/6594)）、@Michael-py001 さん（[#6827](https://github.com/farion1231/cc-switch/issues/6827)）。
+- WebDAV 復元による AGENTS.md 消失を報告してくださった @gyzerocc さん（[#6778](https://github.com/farion1231/cc-switch/issues/6778)）に感謝します——トリガー条件が正確に特定されていました。
+
+---
+
+### ダウンロードとインストール
+
+[Releases](https://github.com/farion1231/cc-switch/releases/latest) からお使いのシステムに合ったビルドをダウンロードするか、公式サイト [ccswitch.io](https://ccswitch.io) から入手してください（ダウンロードは Cloudflare のエッジノード経由で配信され、GitHub への到達性に依存しません）。
+
+#### システム要件
+
+| システム | 最低バージョン             | アーキテクチャ                      |
+| -------- | -------------------------- | ----------------------------------- |
+| Windows  | Windows 10 以降            | x64 / ARM64                         |
+| macOS    | macOS 12 (Monterey) 以降   | Intel (x64) / Apple Silicon (arm64) |
+| Linux    | 下表参照                   | x64 / ARM64                         |
+
+#### Windows
+
+| ファイル                                 | 説明                                              |
+| ---------------------------------------- | ------------------------------------------------- |
+| `CC-Switch-v3.20.1-Windows.msi`          | **推奨** - MSI インストーラ、自動更新対応         |
+| `CC-Switch-v3.20.1-Windows-Portable.zip` | ポータブル版、解凍してすぐ使用、レジストリ不使用  |
+
+Windows ARM64 デバイスでは、ファイル名に `arm64` を含む成果物を選んでください。
+
+#### macOS
+
+| ファイル                         | 説明                                                  |
+| -------------------------------- | ----------------------------------------------------- |
+| `CC-Switch-v3.20.1-macOS.dmg`    | **推奨** - DMG インストーラ、Applications へドラッグ  |
+| `CC-Switch-v3.20.1-macOS.zip`    | 解凍後 Applications へドラッグ、Universal Binary      |
+| `CC-Switch-v3.20.1-macOS.tar.gz` | Homebrew でのインストールと自動更新用                 |
+
+Homebrew でのインストール：
+
+```bash
+brew install --cask cc-switch
+```
+
+アップデート：
+
+```bash
+brew upgrade --cask cc-switch
+```
+
+#### Linux
+
+Linux の成果物は **x86_64** と **ARM64**（`aarch64`）の両アーキテクチャで提供されます。ファイル名のアーキテクチャ表記を、お使いのマシンの `uname -m` の出力に合わせて選んでください：
+
+- `CC-Switch-v3.20.1-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+- `CC-Switch-v3.20.1-Linux-arm64.AppImage` / `.deb` / `.rpm`
+
+| ディストリビューション                  | 推奨形式    | インストール方法                                                       |
+| --------------------------------------- | ----------- | ---------------------------------------------------------------------- |
+| Ubuntu / Debian / Linux Mint / Pop!\_OS | `.deb`      | `sudo dpkg -i CC-Switch-*.deb` または `sudo apt install ./CC-Switch-*.deb` |
+| Fedora / RHEL / CentOS / Rocky Linux    | `.rpm`      | `sudo rpm -i CC-Switch-*.rpm` または `sudo dnf install ./CC-Switch-*.rpm`  |
+| openSUSE                                | `.rpm`      | `sudo zypper install ./CC-Switch-*.rpm`                                |
+| Arch Linux / Manjaro                    | `.AppImage` | 実行権限を付与して直接実行、または AUR を利用                          |
+| その他 / 不明な場合                     | `.AppImage` | `chmod +x CC-Switch-*.AppImage && ./CC-Switch-*.AppImage`              |
+
 ## [3.20.0] - 2026-08-18
 
 > 本リリースは 3 つの構造的な主軸で成り立っています。**Pi が 9 番目の管理対象アプリになりました**——プロバイダ・プロンプト・Skills・セッションブラウザ・使用量統計をひとつの場所で。**Codex が複数の ChatGPT アカウントに対応しました**——認証センターに好きなだけサインインし、公式カードごとにアカウントを紐付け、切り替えで課金先を取り違えることはありません。そして **Claude Code 内蔵の WebSearch が GPT ルーティングでついに動くようになりました**。緊急の修正も 1 件あります。v3.19.2 は WSL パス上で既存設定の更新・切り替えができませんでした——該当するユーザーは本リリースへ直接アップグレードしてください。同じ Windows の一群には、バージョン検出の全面刷新（5 件の issue を一挙に修正）、起動時のちらつき修正、MSI レジストリキーの是正も含まれます。本リリースには**データベースマイグレーション（v16 → v17）が含まれます**——マイグレーション前にバックアップが自動作成され、ダウングレードにはその復元が必要です。

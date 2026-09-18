@@ -1,6 +1,24 @@
 {
   "versions": [
     {
+      "version": "3.20.3",
+      "date": "2026-09-11",
+      "isPreRelease": false,
+      "summary": "如今主流开源模型的官方 API 大多已原生支持 OpenAI Responses 格式。本版把 Codex 里 Kimi 的两条预设也从 Chat Completions 转换改为**原生 Responses 直连**——至此 DeepSeek、智谱 GLM、千问、MiniMax、小米 MiMo、LongCat、Kimi 这些主流开源模型的官方 Codex 预设全部直连厂商端点，连同火山豆包与腾讯混元，不再需要开本地路由做格式转换。如果你的 Codex 卡片还是早先添加的 Chat 格式，重新添加一次预设，或在编辑页把「上游格式」改成 Responses，就能直连。其余是一波由贡献者主导的正确性修复：空 `reasoning_content` 占位符不再让 Claude Code 被空 Thought 块刷屏、Codex 长任务不再在一句进度汇报后戛然而止、Claude Desktop 的模型探针不再在 Responses 上游下误报「不可用」、每次退出都把 Claude 的代理重试与超时抄给 Codex/Gemini/Grok Build 的串写关闭、统一供应商同步不再清空子卡设置；Codex 侧补上省略 `model_provider` 时的代理路由、Windows 上正在增长的会话用量、托盘里托管账号的额度。预设与定价做了一轮维护：聚合平台目录刷新、千问AI平台改名并升到 Qwen 3.8、MiniMax 默认 M3、DeepSeek V4 家族按 V4.1 Flash 档调价。**本版不含数据库迁移。**"
+    },
+    {
+      "version": "3.20.2",
+      "date": "2026-09-07",
+      "isPreRelease": false,
+      "summary": "这一版仍以 Codex 为主线，但形态从上一版的「一次重设计」变成「一波兼容性修复」：**Grok 终于能经 xAI 原生 Responses API 在 Codex 路由下跑通**——xAI 拒收的工具 schema、Codex 拒收的整数浮点、多智能体注入的邮箱消息、xAI 不认识的 Codex 角色型号，四道坎逐一拆掉；围绕它的一族「一因一果」修复：Grok OAuth 卡不再被 v3.20.1 的切换闸误拦、接管不再把 Codex 卡在登录屏、GPT-6 走 Codex OAuth 不再报「需要更新 Codex」、Claude Code 在 Codex OAuth 上恢复并行工具调用、内置图片生成走通本地路由、四个 catalog 缺陷（旧版 Codex 拒载、DeepSeek 下 MCP 工具全隐身、视觉型号被判纯文本、Kimi 工具 schema 400）关闭，智谱 GLM 预设改指官方 Responses 端点。用量侧，Codex resume 后统计停摆与代理每轮打断前缀缓存两条硬修复落地。预设阵营新增腾讯云 Token Plan、QwenCloud、AICodeWith 与两家赞助商 9527CODE、SoleAPI，定价表补入七个新模型并做了一轮九月调价。**本版不含数据库迁移。**"
+    },
+    {
+      "version": "3.20.1",
+      "date": "2026-08-28",
+      "isPreRelease": false,
+      "summary": "这一版围绕 Codex 补两笔硬账：**适配 Codex CLI 0.149**——第三方切换 401「Missing API key」的根治：切换改为 config-only，密钥随供应商表走、不再进 `auth.json`，一族让 0.149 拒绝启动的历史配置形态也在每次切换时自动修复；**同一 ChatGPT Team workspace 的多个账号不再互相覆盖**——存量托管账号需逐个重新登录一次（见升级提醒）。数据可靠性另有三条硬修复：供应商编辑必达 live 配置、Codex 编辑框不再串染别张卡的密钥、恢复备份不再清空手写的 prompt 文件。用量侧新增「自动扫描会话记录」开关，大会话文件的扫描从秒级降到毫秒级。本版**包含数据库迁移（v17 → v18）**，升级前自动备份，降级需还原备份。"
+    },
+    {
       "version": "3.20.0",
       "date": "2026-08-18",
       "isPreRelease": false,

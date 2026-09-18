@@ -1,6 +1,24 @@
 {
   "versions": [
     {
+      "version": "3.20.3",
+      "date": "2026-09-11",
+      "isPreRelease": false,
+      "summary": "The official APIs of today's mainstream open-source models mostly support the OpenAI Responses format natively. This release moves Kimi's two Codex presets from Chat Completions conversion to **native Responses direct-connect** — with that, the official Codex presets for DeepSeek, Zhipu GLM, Qwen, MiniMax, Xiaomi MiMo, LongCat and Kimi all connect directly to the vendor endpoint, and together with Volcengine Doubao and Tencent Hunyuan they no longer need local routing to convert formats. If your Codex card is still in the Chat format it was added with, re-add the preset once, or set \"Upstream format\" to Responses on the edit page, and it connects directly. The rest is a wave of contributor-led correctness fixes: empty `reasoning_content` placeholders no longer flood Claude Code with empty Thought blocks, Codex agent tasks no longer stop dead after a single progress update, Claude Desktop's model probe no longer misreports \"not available\" on Responses upstreams, every shutdown no longer copies Claude's proxy retry and timeout settings onto Codex/Gemini/Grok Build, and universal provider sync no longer wipes child card settings; on the Codex side, proxy routing when `model_provider` is omitted, growing session usage on Windows, and the managed account's quota in the tray are all filled in. Presets and pricing get a maintenance round: the aggregator catalogs are refreshed, 千问AI平台 is rebranded and moved to Qwen 3.8, MiniMax defaults to M3, and the DeepSeek V4 family is repriced to the V4.1 Flash tier. **This release contains no database migration.**"
+    },
+    {
+      "version": "3.20.2",
+      "date": "2026-09-07",
+      "isPreRelease": false,
+      "summary": "Codex is still this release's main line, but the shape changes from last release's \"one redesign\" to \"a wave of compatibility fixes\": **Grok finally runs under Codex routing through xAI's native Responses API** — the tool schemas xAI rejects, the integer-valued floats Codex rejects, the mailbox messages multi-agent mode injects and the Codex role models xAI does not know are dismantled one by one; around it, a family of one-cause-one-effect fixes: Grok OAuth cards are no longer wrongly refused by v3.20.1's switch gate, takeover no longer leaves Codex stuck on the login screen, GPT-6 over Codex OAuth no longer fails with \"update Codex\", Claude Code regains parallel tool calls over Codex OAuth, built-in image generation works under local routing, four catalog defects close (older Codex refusing the catalog, MCP tools hidden under DeepSeek, vision models judged text-only, Kimi tool-schema 400s), and the Zhipu GLM presets move to the official Responses endpoint. On the usage side, two hard fixes land: Codex usage stalling after a resume, and the proxy breaking prefix caching every turn. The preset library gains Tencent Cloud Token Plan, QwenCloud, AICodeWith and two sponsors, 9527CODE and SoleAPI; the pricing table gains seven new models and a September repricing pass. **This release contains no database migration.**"
+    },
+    {
+      "version": "3.20.1",
+      "date": "2026-08-28",
+      "isPreRelease": false,
+      "summary": "This release settles two hard debts on the Codex side: **compatibility with Codex CLI 0.149** — the definitive fix for third-party switches failing with 401 \"Missing API key\": switching is now config-only, the key travels in the provider's own table and never enters `auth.json`, and a family of legacy config shapes that made 0.149 refuse to start is repaired automatically on every switch; and **ChatGPT accounts in the same Team workspace no longer overwrite each other** — existing managed accounts need one re-login each (see Upgrade Notes). Three data-reliability fixes land alongside: provider edits always reach the live config, the Codex edit dialog no longer shows another card's key, and restores no longer wipe hand-written prompt files. On the usage side there is a new \"Auto-Scan Session Logs\" switch, and scanning large session files drops from seconds to milliseconds. This release **includes a database migration (v17 → v18)** — a backup is created automatically before migrating, and downgrading requires restoring it."
+    },
+    {
       "version": "3.20.0",
       "date": "2026-08-18",
       "isPreRelease": false,

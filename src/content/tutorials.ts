@@ -109,14 +109,14 @@ export const tutorials: Tutorial[] = [
   {
     slug: 'codex-kimi-routing-guide',
     title: {
-      zh: '在 Codex 中使用 Kimi：本地路由实战攻略',
-      en: 'Use Kimi in Codex with Local Routing',
-      ja: 'Codex で Kimi を使う: ローカルルーティング実践ガイド',
+      zh: '在 Codex 中使用 Kimi：新版直连与旧版路由',
+      en: 'Use Kimi in Codex: Direct Connections and Legacy Routing',
+      ja: 'Codex で Kimi を使う: 直接接続と旧版ルーティング',
     },
     summary: {
-      zh: '官方实战攻略：Kimi 开放平台与 Kimi For Coding 都是 OpenAI Chat Completions 接口，官方并不支持 Codex。本文演示用 CC Switch 本地路由完成协议转换，把 Kimi 接入 Codex 并验证请求转发。',
-      en: 'Official hands-on guide: both the Kimi Open Platform and Kimi For Coding expose OpenAI Chat Completions APIs without official Codex support. Learn how CC Switch Local Routing converts the protocol so Kimi works inside Codex.',
-      ja: 'Kimi オープンプラットフォームと Kimi For Coding はいずれも OpenAI Chat Completions 形式で、公式には Codex に対応していません。CC Switch のローカルルーティングでプロトコル変換し、Codex で Kimi を使う手順を解説する公式実践ガイドです。',
+      zh: 'v3.20.3 起，Kimi 开放平台与 Kimi For Coding 预设支持原生 Responses 直连。了解如何迁移旧卡片，并查阅旧版 Chat Completions 本地路由的配置与排障步骤。',
+      en: 'Since v3.20.3, Kimi Open Platform and Kimi For Coding presets use native Responses connections. Learn how to migrate existing cards, with legacy Chat Completions routing steps retained for reference.',
+      ja: 'v3.20.3 以降、Kimi オープンプラットフォームと Kimi For Coding はネイティブ Responses で直接接続できます。既存カードの移行方法と、旧版 Chat Completions ルーティングの設定・対処手順を紹介します。',
     },
     author: { name: 'CC Switch Team', url: 'https://github.com/farion1231/cc-switch/blob/main/docs/guides/codex-kimi-routing-guide-zh.md' },
     date: '2026-07-07',
@@ -135,9 +135,9 @@ export const tutorials: Tutorial[] = [
       ja: 'CC Switch で Codex から Kimi For Coding を使う',
     },
     summary: {
-      zh: 'Kimi Code 官方文档，介绍如何通过 CC Switch 本地路由将 Codex CLI 接入 Kimi For Coding，配置 Kimi K3 / K2.7 Code 模型、上下文窗口与思考等级，并排查常见连接问题。',
-      en: 'Official Kimi Code documentation for connecting Codex CLI to Kimi For Coding through CC Switch local routing, configuring Kimi K3 / K2.7 Code models, context windows, reasoning effort, and troubleshooting.',
-      ja: 'Kimi Code 公式ドキュメント。CC Switch のローカルルーティングで Codex CLI を Kimi For Coding に接続し、Kimi K3 / K2.7 Code、コンテキストウィンドウ、思考レベル、トラブルシュートを解説します。',
+      zh: 'Kimi Code 官方的 Codex 接入指南，涵盖 CC Switch 配置、模型选择与常见连接问题排查。',
+      en: 'The official Kimi Code guide to Codex integration, covering CC Switch setup, model selection and connection troubleshooting.',
+      ja: 'Kimi Code 公式の Codex 接続ガイド。CC Switch の設定、モデル選択、接続トラブルへの対処を紹介します。',
     },
     author: { name: 'Kimi Code', url: 'https://www.kimi.com/code/docs/' },
     date: '2026-07-22',
