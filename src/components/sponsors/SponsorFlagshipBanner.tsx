@@ -53,21 +53,46 @@ export function SponsorFlagshipBanner({ sponsor }: SponsorFlagshipBannerProps) {
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-card/40 to-transparent" />
         </div>
+      </a>
 
-        <div className="space-y-4 p-6 sm:p-8 md:p-10">
-          <h3 className="text-2xl font-bold text-foreground transition-colors group-hover:text-primary md:text-3xl">
-            {name}
-          </h3>
+      <div className="space-y-4 p-6 sm:p-8 md:p-10">
+        <h3 className="text-2xl font-bold text-foreground transition-colors group-hover:text-primary md:text-3xl">
+          {name}
+        </h3>
 
-          <p className="text-sm font-medium text-primary md:text-base">{tagline}</p>
+        <p className="text-sm font-medium text-primary md:text-base">{tagline}</p>
 
-          <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
-            {description}
-          </p>
+        <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+          {description}
+        </p>
 
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            {perk && <SponsorPerkBadge text={perk} size="md" />}
-            <span
+        {sponsor.bannerLinks?.length ? (
+          <div className="flex flex-wrap gap-3 pt-2">
+            {sponsor.bannerLinks.map((link) => (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  buttonVariants({ variant: link.primary ? 'hero' : 'outline', shape: 'pill' }),
+                  'h-auto max-w-full whitespace-normal px-5 py-2.5 text-sm',
+                )}
+              >
+                {link.label[language]}
+                <ArrowUpRight className="h-4 w-4 shrink-0" />
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          {perk && <SponsorPerkBadge text={perk} size="md" />}
+          {!sponsor.bannerLinks?.length && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
               className={cn(
                 buttonVariants({ variant: 'hero', shape: 'pill' }),
                 'ml-auto px-5 py-2.5 text-sm font-medium md:text-base',
@@ -75,10 +100,10 @@ export function SponsorFlagshipBanner({ sponsor }: SponsorFlagshipBannerProps) {
             >
               {t.sponsorsPage.card.visitWithCoupon ?? t.sponsorsPage.card.visit}
               <ArrowUpRight className="h-4 w-4" />
-            </span>
-          </div>
+            </a>
+          )}
         </div>
-      </a>
+      </div>
     </motion.article>
   );
 }

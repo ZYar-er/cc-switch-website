@@ -38,6 +38,7 @@ import sudocodeIcon from '@/assets/icons/sponsors/sudocode.png';
 import soleapiIcon from '@/assets/icons/sponsors/soleapi.svg';
 import xycaiIcon from '@/assets/icons/sponsors/xycai-icon.png';
 import ppioIcon from '@/assets/icons/sponsors/ppio.png';
+import fluxaIcon from '@/assets/icons/sponsors/fluxa.png';
 
 import kimiBannerZh from '@/assets/banners/sponsors/kimi-banner-zh.png';
 import kimiBannerEn from '@/assets/banners/sponsors/kimi-banner-en.png';
@@ -67,6 +68,11 @@ export interface Sponsor {
   perk?: LocalizedText;
   couponCode?: string;
   banner?: LocalizedAsset;
+  bannerLinks?: Array<{
+    label: LocalizedText;
+    url: string;
+    primary?: boolean;
+  }>;
   iconBg?: 'light' | 'dark' | 'auto';
   iconFollowsTheme?: boolean;
   since?: string;
@@ -87,6 +93,7 @@ const sponsorDisplayOrder = [
   'aigocode',
   'aicoding',
   'subrouter',
+  'fluxa',
   'apikey-fun',
   '9527code',
   'claudeapi',
@@ -132,6 +139,26 @@ export const sponsors: Sponsor[] = [
     featured: true,
     since: '2026-07',
     banner: { zh: kimiBannerZh, en: kimiBannerEn, ja: kimiBannerEn, default: kimiBannerEn },
+    bannerLinks: [
+      {
+        label: { zh: 'Kimi Code 套餐 · 中文站', en: 'Kimi Code Plan · China', ja: 'Kimi Code プラン · 中国向け' },
+        url: 'https://www.kimi.com/code?aff=cc-switch',
+        primary: true,
+      },
+      {
+        label: { zh: 'Kimi Code 套餐 · 国际站', en: 'Kimi Code Plan · Global', ja: 'Kimi Code プラン · Global' },
+        url: 'https://www.kimi.ai/code?aff=cc-switch',
+        primary: true,
+      },
+      {
+        label: { zh: 'Kimi API · 中文站', en: 'Kimi API · China', ja: 'Kimi API · 中国向け' },
+        url: 'https://platform.kimi.com?track_id=track-6840233b42274ab4bcfd283e2bdd2aee&aff=cc-switch',
+      },
+      {
+        label: { zh: 'Kimi API · 国际站', en: 'Kimi API · Global', ja: 'Kimi API · Global' },
+        url: 'https://platform.kimi.ai?track_id=track-20d65732f0aa45dcb1df9691a15610af&aff=cc-switch',
+      },
+    ],
     tagline: {
       zh: 'Moonshot AI 最强开源 3T 级模型',
       en: "Moonshot AI's most capable open 3T-class model",
@@ -143,9 +170,9 @@ export const sponsors: Sponsor[] = [
       ja: 'Kimi K3 は Moonshot AI がこれまでに開発した中で最も高性能なモデルであり、世界初のオープンソース 3T クラスモデルです。2.8 兆パラメータ、ネイティブな視覚能力、100 万トークンのコンテキストウィンドウを備え、長期にわたるコーディング、ナレッジワーク、推論タスクにおいてフロンティア級の性能を発揮します。CC Switch を使えば、さまざまなエージェントツールで Kimi を手軽に設定・切り替えできます。',
     },
     perk: {
-      zh: '新用户首充返 10% API 额度，最高 ¥1000',
-      en: '10% bonus API credit on first top-up, up to CNY ¥1,000',
-      ja: '初回チャージの 10% を API クレジットで還元（最大 CNY ¥1,000）',
+      zh: 'API 新用户首充返 10% 额度，最高 ¥1000',
+      en: 'New API users: 10% bonus credit on first top-up, up to CNY ¥1,000',
+      ja: 'API 新規ユーザー：初回チャージの 10% を還元（最大 CNY ¥1,000）',
     },
   },
   {
@@ -721,6 +748,31 @@ export const sponsors: Sponsor[] = [
       zh: '首次充值 9 折',
       en: '10% off first top-up',
       ja: '初回チャージ 10% オフ',
+    },
+  },
+  {
+    id: 'fluxa',
+    name: 'FluxA TokenPlan',
+    icon: fluxaIcon,
+    url: 'https://agentmarket.fluxapay.xyz/marketplace/tokenplans',
+    tier: 'standard',
+    category: 'subscription',
+    iconBg: 'light',
+    since: '2026-09',
+    tagline: {
+      zh: 'FluxA × 百度智能云 AgenticPlan',
+      en: 'FluxA × Baidu AI Cloud AgenticPlan',
+      ja: 'FluxA × Baidu AI Cloud AgenticPlan',
+    },
+    description: {
+      zh: 'FluxA 与百度智能云联合推出 AgenticPlan，内含低至 6 折的百度千帆 TokenPlan，可使用 DeepSeek V4、GLM 5.2、Kimi 等旗舰模型，并获赠 FluxA AgentMarket API 额度，解锁搜索、数据抓取、社交媒体、金融、加密、生图、视频等 1000+ 付费 API。在用户授权下，AI Agent 还可通过官方 Visa 卡自主采购资源、管理 API Key、监控用量并规划续费。',
+      en: 'FluxA and Baidu AI Cloud jointly offer AgenticPlan, including Baidu Qianfan TokenPlan at up to 40% off with access to DeepSeek V4, GLM 5.2, Kimi and other flagship models. Bonus FluxA AgentMarket credits unlock 1,000+ paid APIs for search, scraping, social media, finance, crypto, images and video. With user authorization, AI agents can also use the official Visa card to procure resources, manage API keys, monitor usage and plan renewals.',
+      ja: 'FluxA と百度智能雲（Baidu AI Cloud）が共同提供する AgenticPlan は、百度千帆 TokenPlan を最大 40% オフで利用でき、DeepSeek V4、GLM 5.2、Kimi などの主力モデルに対応します。特典の FluxA AgentMarket クレジットで、検索・データ取得・SNS・金融・暗号資産・画像生成・動画など 1,000 以上の有料 API も利用できます。ユーザーの承認のもと、AI エージェントは公式 Visa カードでリソースを調達し、API キー管理、使用量監視、更新計画も行えます。',
+    },
+    perk: {
+      zh: '千帆 TokenPlan 低至 6 折，赠 AgentMarket API 额度',
+      en: 'Up to 40% off Qianfan TokenPlan + bonus AgentMarket API credits',
+      ja: '千帆 TokenPlan 最大 40% オフ＋AgentMarket API クレジット',
     },
   },
   {
